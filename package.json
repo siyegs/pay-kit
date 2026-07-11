@@ -1,0 +1,51 @@
+{
+  "name": "@siyegs/pay-kit",
+  "version": "0.1.0",
+  "description": "One typed SDK for African payment rails - unified Paystack & Flutterwave: initialize, verify, and signature-verified webhooks.",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "paystack",
+    "flutterwave",
+    "payments",
+    "payment-gateway",
+    "nigeria",
+    "africa",
+    "fintech",
+    "typescript",
+    "sdk",
+    "webhooks"
+  ],
+  "author": "Iyegere Success Karboloo",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "tsup": "^8.1.0",
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0"
+  }
+}

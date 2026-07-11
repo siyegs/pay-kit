@@ -1,0 +1,133 @@
+import { PayKitError } from "../errors";
+import { providerRequest, safeEqual } from "../internal";
+import type {
+  InitializeParams,
+  InitializeResult,
+  PaymentProvider,
+  PaymentStatus,
+  ProviderContext,
+  VerifyResult,
+  WebhookEvent,
+  WebhookEventType,
+} from "../types";
+
+const FLUTTERWAVE_BASE = "https://api.flutterwave.com";
+
+/**
+ * Flutterwave works in major currency units (naira, not kobo), so pay-kit
+ * converts to/from its canonical subunit representation at the boundary.
+ */
+function toMajor(subunits: number): number {
+  return subunits / 100;
+}
+function toSubunits(major: unknown): number {
+  return Math.round(Number(major ?? 0) * 100);
+}
+
+function mapStatus(raw: unknown): PaymentStatus {
+  switch (raw) {
+    case "successful":
+    case "success":
+      return "success";
+    case "failed":
+      return "failed";
+    default:
+      return "pending";
+  }
+}
+
+function mapEventType(status: PaymentStatus): WebhookEventType {
+  if (status === "success") return "charge.success";
+  if (status === "failed") return "charge.failed";
+  return "unknown";
+}
+
+export function createFlutterwaveProvider(ctx: ProviderContext): PaymentProvider {
+  const base = ctx.baseUrl ?? FLUTTERWAVE_BASE;
+
+  return {
+    name: "flutterwave",
+
+    async initialize(params: InitializeParams): Promise<InitializeResult> {
+      const reference = params.reference ?? ctx.generateReference();
+      const body = await providerRequest(ctx, "flutterwave", `${base}/v3/payments`, {
+        method: "POST",
+        body: JSON.stringify({
+          tx_ref: reference,
+          amount: toMajor(params.amount),
+          currency: params.currency ?? "NGN",
+          redirect_url: params.callbackUrl,
+          customer: { email: params.email },
+          meta: params.metadata,
+        }),
+      });
+
+      const data = (body.data ?? {}) as Record<string, unknown>;
+      return {
+        reference,
+        authorizationUrl: String(data.link ?? ""),
+        raw: body,
+      };
+    },
+
+    async verify(reference: string): Promise<VerifyResult> {
+      const body = await providerRequest(
+        ctx,
+        "flutterwave",
+        `${base}/v3/transactions/verify_by_reference?tx_ref=${encodeURIComponent(reference)}`,
+        { method: "GET" },
+      );
+
+      const data = (body.data ?? {}) as Record<string, unknown>;
+      const customer = (data.customer ?? {}) as Record<string, unknown>;
+      return {
+        reference: String(data.tx_ref ?? reference),
+        status: mapStatus(data.status),
+        amount: toSubunits(data.amount),
+        currency: String(data.currency ?? ""),
+        paidAt: data.created_at ? String(data.created_at) : undefined,
+        channel: data.payment_type ? String(data.payment_type) : undefined,
+        customer: { email: customer.email ? String(customer.email) : undefined },
+        raw: body,
+      };
+    },
+
+    constructWebhookEvent(rawBody: string, signature: string): WebhookEvent {
+      // Flutterwave sends the "Secret hash" verbatim in the `verif-hash` header.
+      if (!ctx.webhookSecret) {
+        throw new PayKitError(
+          "Flutterwave webhook verification requires `webhookSecret` (your Secret hash)",
+          { code: "config_error", provider: "flutterwave" },
+        );
+      }
+      if (!signature || !safeEqual(ctx.webhookSecret, signature)) {
+        throw new PayKitError("Invalid Flutterwave webhook signature", {
+          code: "invalid_signature",
+          provider: "flutterwave",
+        });
+      }
+
+      let event: Record<string, unknown>;
+      try {
+        event = JSON.parse(rawBody) as Record<string, unknown>;
+      } catch (err) {
+        throw new PayKitError("Malformed Flutterwave webhook body", {
+          code: "provider_error",
+          provider: "flutterwave",
+          cause: err,
+        });
+      }
+
+      const data = (event.data ?? {}) as Record<string, unknown>;
+      const status = mapStatus(data.status);
+      return {
+        type: mapEventType(status),
+        reference: String(data.tx_ref ?? ""),
+        status,
+        amount: data.amount !== undefined ? toSubunits(data.amount) : undefined,
+        currency: data.currency ? String(data.currency) : undefined,
+        raw: event,
+      };
+    },
+  };
+}
