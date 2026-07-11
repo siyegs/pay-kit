@@ -19,11 +19,11 @@ Most serious African products integrate **both** Paystack and Flutterwave - for 
 ## Install
 
 ```bash
-npm install @siyegs/pay-kit
-# or: pnpm add @siyegs/pay-kit / bun add @siyegs/pay-kit
+bun add @siyegs/pay-kit
+# or: npm install @siyegs/pay-kit / pnpm add @siyegs/pay-kit
 ```
 
-Requires Node >= 18 (for global `fetch`). Keep your secret key **server-side only**.
+Runs on **Bun** and **Node >= 18** (both provide global `fetch` and `node:crypto`). Keep your secret key **server-side only**.
 
 ## Quick start
 
@@ -104,6 +104,17 @@ app.post("/webhooks/pay", express.raw({ type: "*/*" }), (req, res) => {
 - [ ] **Provider fallback** (auto-retry the other provider on outage)
 - [ ] Framework adapters (NestJS, Hono, Next.js route handlers)
 - [ ] Mock provider for offline development
+
+## Development
+
+Built with the [Bun](https://bun.sh) toolchain.
+
+```bash
+bun install          # install deps
+bun test             # run the test suite (bun:test)
+bun run typecheck    # tsc --noEmit
+bun run build        # tsup -> dist (ESM + CJS + .d.ts)
+```
 
 ## License
 

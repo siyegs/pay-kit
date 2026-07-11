@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { createPayClient } from "../client";
 import { PayKitError } from "../errors";
 import { jsonBody, mockFetch } from "./helpers";
