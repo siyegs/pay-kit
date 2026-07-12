@@ -2,6 +2,7 @@
 
 > One typed SDK for African payment rails. Unified **Paystack** and **Flutterwave**: initialize a payment, verify it, and handle signature-verified webhooks - with the same API for both.
 
+[![CI](https://github.com/siyegs/pay-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/siyegs/pay-kit/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/badge/npm-%40siyegs%2Fpay--kit-cb3837)](https://www.npmjs.com/package/@siyegs/pay-kit)
 [![license](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
 [![types](https://img.shields.io/badge/types-included-3178c6)](./src/types.ts)
