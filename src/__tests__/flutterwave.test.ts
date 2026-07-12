@@ -43,6 +43,44 @@ describe("flutterwave: verify", () => {
   });
 });
 
+describe("flutterwave: refund", () => {
+  it("resolves the transaction id from the reference, then posts the refund", async () => {
+    const { fetch, calls } = mockFetch((url) => {
+      if (url.includes("verify_by_reference")) {
+        return {
+          body: {
+            status: "success",
+            data: { id: 998877, tx_ref: "tx_1", status: "successful", amount: 5000, currency: "NGN" },
+          },
+        };
+      }
+      return { body: { status: "success", data: { status: "completed", amount_refunded: 5000 } } };
+    });
+    const pay = createPayClient({ provider: "flutterwave", secretKey: SECRET, fetch });
+
+    const res = await pay.refund("tx_1");
+    expect(res.status).toBe("processed");
+    expect(res.amount).toBe(500000); // 5000 naira refunded -> 500000 kobo
+    expect(res.reference).toBe("tx_1");
+
+    // first call resolves the id, second call refunds against it
+    expect(calls[0]!.url).toContain("verify_by_reference?tx_ref=tx_1");
+    expect(calls[1]!.url).toContain("/v3/transactions/998877/refund");
+    expect(calls[1]!.init.method).toBe("POST");
+  });
+
+  it("errors when the reference has no matching transaction", async () => {
+    const { fetch } = mockFetch(() => ({ body: { status: "success", data: {} } }));
+    const pay = createPayClient({ provider: "flutterwave", secretKey: SECRET, fetch });
+
+    await expect(pay.refund("missing")).rejects.toMatchObject({
+      name: "PayKitError",
+      code: "provider_error",
+      provider: "flutterwave",
+    });
+  });
+});
+
 describe("flutterwave: webhooks", () => {
   const raw = JSON.stringify({
     event: "charge.completed",

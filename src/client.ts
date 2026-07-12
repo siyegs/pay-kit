@@ -57,6 +57,7 @@ export function createPayClient(config: PayClientConfig): PayClient {
     provider: provider.name,
     initialize: (params) => provider.initialize(params),
     verify: (reference) => provider.verify(reference),
+    refund: (reference, options) => provider.refund(reference, options),
     webhooks: {
       construct: (rawBody, signature) => provider.constructWebhookEvent(rawBody, signature),
     },

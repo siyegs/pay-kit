@@ -102,6 +102,44 @@ describe("paystack: verify", () => {
   });
 });
 
+describe("paystack: refund", () => {
+  it("posts a full refund using the transaction reference", async () => {
+    const { fetch, calls } = mockFetch(() => ({
+      body: {
+        status: true,
+        data: { status: "processed", amount: 500000, transaction: { reference: "ref_1" } },
+      },
+    }));
+    const pay = createPayClient({ provider: "paystack", secretKey: SECRET, fetch });
+
+    const res = await pay.refund("ref_1");
+    expect(res.status).toBe("processed");
+    expect(res.amount).toBe(500000);
+    expect(res.reference).toBe("ref_1");
+
+    const call = calls[0]!;
+    expect(call.url).toContain("/refund");
+    expect(call.init.method).toBe("POST");
+    const sent = jsonBody(call.init);
+    expect(sent.transaction).toBe("ref_1");
+    expect(sent.amount).toBeUndefined(); // full refund omits amount
+  });
+
+  it("includes the amount for a partial refund", async () => {
+    const { fetch, calls } = mockFetch(() => ({
+      body: {
+        status: true,
+        data: { status: "pending", amount: 20000, transaction: { reference: "ref_1" } },
+      },
+    }));
+    const pay = createPayClient({ provider: "paystack", secretKey: SECRET, fetch });
+
+    const res = await pay.refund("ref_1", { amount: 20000 });
+    expect(res.status).toBe("pending");
+    expect(jsonBody(calls[0]!.init).amount).toBe(20000);
+  });
+});
+
 describe("paystack: webhooks", () => {
   const raw = JSON.stringify({
     event: "charge.success",

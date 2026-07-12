@@ -7,6 +7,9 @@ import type {
   PaymentProvider,
   PaymentStatus,
   ProviderContext,
+  RefundOptions,
+  RefundResult,
+  RefundStatus,
   VerifyResult,
   WebhookEvent,
   WebhookEventType,
@@ -30,6 +33,18 @@ function mapStatus(raw: unknown): PaymentStatus {
 
 function mapEventType(event: unknown): WebhookEventType {
   return typeof event === "string" && event.length > 0 ? event : "unknown";
+}
+
+function mapRefundStatus(raw: unknown): RefundStatus {
+  switch (raw) {
+    case "processed":
+    case "success":
+      return "processed";
+    case "failed":
+      return "failed";
+    default:
+      return "pending";
+  }
 }
 
 export function createPaystackProvider(ctx: ProviderContext): PaymentProvider {
@@ -79,6 +94,25 @@ export function createPaystackProvider(ctx: ProviderContext): PaymentProvider {
         paidAt: data.paid_at ? String(data.paid_at) : undefined,
         channel: data.channel ? String(data.channel) : undefined,
         customer: { email: customer.email ? String(customer.email) : undefined },
+        raw: body,
+      };
+    },
+
+    async refund(reference: string, options?: RefundOptions): Promise<RefundResult> {
+      const body = await providerRequest(ctx, "paystack", `${base}/refund`, {
+        method: "POST",
+        body: JSON.stringify({
+          transaction: reference,
+          ...(options?.amount !== undefined ? { amount: options.amount } : {}),
+        }),
+      });
+
+      const data = (body.data ?? {}) as Record<string, unknown>;
+      const transaction = (data.transaction ?? {}) as Record<string, unknown>;
+      return {
+        reference: String(transaction.reference ?? reference),
+        status: mapRefundStatus(data.status),
+        amount: data.amount !== undefined ? Number(data.amount) : undefined,
         raw: body,
       };
     },

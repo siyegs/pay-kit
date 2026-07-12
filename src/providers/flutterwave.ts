@@ -6,6 +6,9 @@ import type {
   PaymentProvider,
   PaymentStatus,
   ProviderContext,
+  RefundOptions,
+  RefundResult,
+  RefundStatus,
   VerifyResult,
   WebhookEvent,
   WebhookEventType,
@@ -40,6 +43,20 @@ function mapEventType(status: PaymentStatus): WebhookEventType {
   if (status === "success") return "charge.success";
   if (status === "failed") return "charge.failed";
   return "unknown";
+}
+
+function mapRefundStatus(raw: unknown): RefundStatus {
+  switch (raw) {
+    case "completed":
+    case "successful":
+    case "success":
+    case "processed":
+      return "processed";
+    case "failed":
+      return "failed";
+    default:
+      return "pending";
+  }
 }
 
 export function createFlutterwaveProvider(ctx: ProviderContext): PaymentProvider {
@@ -88,6 +105,46 @@ export function createFlutterwaveProvider(ctx: ProviderContext): PaymentProvider
         paidAt: data.created_at ? String(data.created_at) : undefined,
         channel: data.payment_type ? String(data.payment_type) : undefined,
         customer: { email: customer.email ? String(customer.email) : undefined },
+        raw: body,
+      };
+    },
+
+    async refund(reference: string, options?: RefundOptions): Promise<RefundResult> {
+      // Flutterwave refunds are keyed by the numeric transaction id, not tx_ref,
+      // so resolve the id from the reference first.
+      const verifyBody = await providerRequest(
+        ctx,
+        "flutterwave",
+        `${base}/v3/transactions/verify_by_reference?tx_ref=${encodeURIComponent(reference)}`,
+        { method: "GET" },
+      );
+      const verifyData = (verifyBody.data ?? {}) as Record<string, unknown>;
+      const id = verifyData.id;
+      if (id === undefined || id === null) {
+        throw new PayKitError(
+          `No Flutterwave transaction found for reference "${reference}"`,
+          { code: "provider_error", provider: "flutterwave", raw: verifyBody },
+        );
+      }
+
+      const body = await providerRequest(
+        ctx,
+        "flutterwave",
+        `${base}/v3/transactions/${encodeURIComponent(String(id))}/refund`,
+        {
+          method: "POST",
+          body: JSON.stringify(
+            options?.amount !== undefined ? { amount: toMajor(options.amount) } : {},
+          ),
+        },
+      );
+
+      const data = (body.data ?? {}) as Record<string, unknown>;
+      const refunded = data.amount_refunded ?? data.amount;
+      return {
+        reference,
+        status: mapRefundStatus(data.status),
+        amount: refunded !== undefined ? toSubunits(refunded) : undefined,
         raw: body,
       };
     },

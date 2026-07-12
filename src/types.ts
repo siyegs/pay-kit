@@ -67,6 +67,23 @@ export interface WebhookEvent {
   raw: unknown;
 }
 
+/** Normalized refund status across providers. */
+export type RefundStatus = "pending" | "processed" | "failed";
+
+export interface RefundOptions {
+  /** Amount to refund in subunits. Omit for a full refund. */
+  amount?: number;
+}
+
+export interface RefundResult {
+  /** Reference of the original transaction being refunded. */
+  reference: string;
+  status: RefundStatus;
+  /** Refunded amount in subunits, when reported by the provider. */
+  amount?: number;
+  raw: unknown;
+}
+
 /** Internal context handed to each provider adapter. */
 export interface ProviderContext {
   secretKey: string;
@@ -80,6 +97,7 @@ export interface PaymentProvider {
   readonly name: ProviderName;
   initialize(params: InitializeParams): Promise<InitializeResult>;
   verify(reference: string): Promise<VerifyResult>;
+  refund(reference: string, options?: RefundOptions): Promise<RefundResult>;
   constructWebhookEvent(rawBody: string, signature: string): WebhookEvent;
 }
 
@@ -104,6 +122,8 @@ export interface PayClient {
   readonly provider: ProviderName;
   initialize(params: InitializeParams): Promise<InitializeResult>;
   verify(reference: string): Promise<VerifyResult>;
+  /** Refund a transaction in full, or partially with `options.amount` (subunits). */
+  refund(reference: string, options?: RefundOptions): Promise<RefundResult>;
   webhooks: {
     /**
      * Verify a raw webhook body against its signature header and return a

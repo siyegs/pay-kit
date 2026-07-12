@@ -92,13 +92,14 @@ app.post("/webhooks/pay", express.raw({ type: "*/*" }), (req, res) => {
 
 - `initialize(params) -> { reference, authorizationUrl, accessCode?, raw }`
 - `verify(reference) -> { reference, status, amount, currency, paidAt?, channel?, customer?, raw }`
+- `refund(reference, options?) -> { reference, status, amount?, raw }` - full refund, or partial with `options.amount` (subunits)
 - `webhooks.construct(rawBody, signature) -> { type, reference, status?, amount?, currency?, raw }`
 
 `status` is normalized to `"success" | "failed" | "pending" | "abandoned"`. Errors are thrown as `PayKitError` with `code` in `provider_error | network_error | invalid_signature | config_error | verification_failed`.
 
 ## Roadmap
 
-- [ ] Refunds
+- [x] Refunds (full & partial)
 - [ ] Transfers / payouts
 - [ ] Plans & subscriptions
 - [ ] **Provider fallback** (auto-retry the other provider on outage)
