@@ -1,8 +1,17 @@
 {
   "name": "@siyegs/pay-kit",
   "version": "0.1.0",
-  "description": "One typed SDK for African payment rails - unified Paystack & Flutterwave: initialize, verify, and signature-verified webhooks.",
+  "description": "One typed SDK for African payment rails - unified Paystack & Flutterwave: initialize, verify, refund, and signature-verified webhooks, with provider fallback.",
   "type": "module",
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/siyegs/pay-kit.git"
+  },
+  "homepage": "https://github.com/siyegs/pay-kit#readme",
+  "bugs": {
+    "url": "https://github.com/siyegs/pay-kit/issues"
+  },
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -23,7 +32,8 @@
     "dev": "tsup --watch",
     "test": "bun test",
     "test:watch": "bun test --watch",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "bun run typecheck && bun run test && bun run build"
   },
   "keywords": [
     "paystack",
@@ -41,6 +51,9 @@
   "license": "MIT",
   "engines": {
     "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "devDependencies": {
     "@types/bun": "^1.1.0",
