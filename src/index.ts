@@ -1,8 +1,13 @@
 export { createPayClient } from "./client";
-export { PayKitError } from "./errors";
+export { createFallbackClient } from "./fallback";
+export { PayKitError, isRetryableError } from "./errors";
 export type { PayKitErrorCode, PayKitErrorOptions } from "./errors";
 export type {
   Currency,
+  FallbackClient,
+  FallbackClientConfig,
+  FallbackInitializeResult,
+  FallbackProviderConfig,
   InitializeParams,
   InitializeResult,
   PayClient,

@@ -132,3 +132,44 @@ export interface PayClient {
     construct(rawBody: string, signature: string): WebhookEvent;
   };
 }
+
+/** One provider entry for a fallback client. Providers are tried in order. */
+export interface FallbackProviderConfig {
+  provider: ProviderName;
+  secretKey: string;
+  webhookSecret?: string;
+  baseUrl?: string;
+}
+
+export interface FallbackClientConfig {
+  /** Providers tried in order until one initializes successfully. */
+  providers: FallbackProviderConfig[];
+  fetch?: typeof fetch;
+  generateReference?: () => string;
+}
+
+/** `initialize` result plus the provider that actually handled the charge. */
+export interface FallbackInitializeResult extends InitializeResult {
+  provider: ProviderName;
+}
+
+export interface FallbackClient {
+  /**
+   * Try each configured provider in order until one succeeds. Only outage-like
+   * failures (network errors, HTTP 5xx, 429) trigger a fallback; a 4xx fails
+   * fast. The result's `provider` field tells you which provider to route
+   * verify/refund/webhooks to for this transaction.
+   */
+  initialize(params: InitializeParams): Promise<FallbackInitializeResult>;
+  verify(provider: ProviderName, reference: string): Promise<VerifyResult>;
+  refund(
+    provider: ProviderName,
+    reference: string,
+    options?: RefundOptions,
+  ): Promise<RefundResult>;
+  webhooks: {
+    construct(provider: ProviderName, rawBody: string, signature: string): WebhookEvent;
+  };
+  /** Access the underlying single-provider client (e.g. after fallback routing). */
+  client(provider: ProviderName): PayClient;
+}

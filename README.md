@@ -75,6 +75,33 @@ app.post("/webhooks/pay", express.raw({ type: "*/*" }), (req, res) => {
 - **Paystack**: signature header is `x-paystack-signature`; verification uses your `secretKey`.
 - **Flutterwave**: header is `verif-hash`; pass your "Secret hash" as `webhookSecret` when creating the client.
 
+## Provider fallback
+
+Try one provider, automatically fall through to the next when it is unreachable - so a Paystack outage doesn't stop you taking money.
+
+```ts
+import { createFallbackClient } from "@siyegs/pay-kit";
+
+const pay = createFallbackClient({
+  providers: [
+    { provider: "paystack", secretKey: process.env.PAYSTACK_SECRET_KEY! },
+    { provider: "flutterwave", secretKey: process.env.FLW_SECRET_KEY!, webhookSecret: process.env.FLW_HASH },
+  ],
+});
+
+// initialize tries Paystack, then Flutterwave on an outage
+const { reference, provider } = await pay.initialize({ amount: 500000, email: "a@b.com" });
+
+// persist BOTH reference and provider, then route the rest to that provider
+const result = await pay.verify(provider, reference);
+await pay.refund(provider, reference);
+const event = pay.webhooks.construct(provider, rawBody, signature);
+```
+
+- Only **outage-like** failures trigger fallback: network errors, HTTP 5xx, and 429. A 4xx (bad request, invalid key) fails fast - it would fail the same way on the next provider.
+- A charge started on one provider can only be verified/refunded on that provider, so `initialize` returns which `provider` handled it. **Persist `provider` alongside `reference`.**
+- Fallback is safest for *pre-charge* outages (provider unreachable). If a provider accepts the charge then the connection drops, retrying the other provider could double-charge - use idempotency at your order layer for that edge.
+
 ## API
 
 ### `createPayClient(config)`
@@ -100,9 +127,9 @@ app.post("/webhooks/pay", express.raw({ type: "*/*" }), (req, res) => {
 ## Roadmap
 
 - [x] Refunds (full & partial)
+- [x] **Provider fallback** (auto-retry the other provider on outage)
 - [ ] Transfers / payouts
 - [ ] Plans & subscriptions
-- [ ] **Provider fallback** (auto-retry the other provider on outage)
 - [ ] Framework adapters (NestJS, Hono, Next.js route handlers)
 - [ ] Mock provider for offline development
 
