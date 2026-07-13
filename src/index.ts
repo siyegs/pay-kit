@@ -3,6 +3,7 @@ export { createFallbackClient } from "./fallback";
 export { PayKitError, isRetryableError } from "./errors";
 export type { PayKitErrorCode, PayKitErrorOptions } from "./errors";
 export type {
+  Bank,
   Currency,
   FallbackClient,
   FallbackClientConfig,
@@ -10,6 +11,7 @@ export type {
   FallbackProviderConfig,
   InitializeParams,
   InitializeResult,
+  ListBanksOptions,
   PayClient,
   PayClientConfig,
   PaymentProvider,
@@ -18,6 +20,8 @@ export type {
   RefundOptions,
   RefundResult,
   RefundStatus,
+  ResolveAccountParams,
+  ResolvedAccount,
   TransferParams,
   TransferRecipient,
   TransferResult,

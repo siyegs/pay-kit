@@ -59,6 +59,8 @@ export function createPayClient(config: PayClientConfig): PayClient {
     verify: (reference) => provider.verify(reference),
     refund: (reference, options) => provider.refund(reference, options),
     transfer: (params) => provider.transfer(params),
+    resolveAccount: (params) => provider.resolveAccount(params),
+    listBanks: (options) => provider.listBanks(options),
     webhooks: {
       construct: (rawBody, signature) => provider.constructWebhookEvent(rawBody, signature),
     },
