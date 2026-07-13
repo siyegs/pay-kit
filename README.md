@@ -136,6 +136,7 @@ The mock is **stateful per client**: a charge you `initialize` is remembered, so
 - `verify(reference) -> { reference, status, amount, currency, paidAt?, channel?, customer?, raw }`
 - `refund(reference, options?) -> { reference, status, amount?, raw }` - full refund, or partial with `options.amount` (subunits)
 - `transfer(params) -> { reference, status, amount?, transferId?, recipientCode?, raw }` - send a payout to a bank account
+- `verifyTransfer(transferId) -> { reference, status, amount?, transferId?, raw }` - check a payout's final state (payouts settle asynchronously)
 - `resolveAccount({ accountNumber, bankCode }) -> { accountNumber, accountName, bankCode?, raw }` - confirm an account holder's name before paying out
 - `listBanks(options?) -> { name, code }[]` - supported banks for a payout bank picker (`options.country`, ISO-2, defaults NG)
 - `webhooks.construct(rawBody, signature) -> { type, reference, status?, amount?, currency?, raw }`
@@ -160,6 +161,14 @@ const payout = await pay.transfer({
 ```
 
 On a fallback client, `transfer(provider, params)` takes the provider **explicitly** and never falls through - re-sending a payout after a timeout could pay the recipient twice, so you name the rail and reconcile by `reference`.
+
+Payouts settle **asynchronously**, so `transfer` usually returns `pending`. Persist the `transferId` and confirm the final state later:
+
+```ts
+const payout = await pay.transfer({ amount: 500000, recipient: { accountNumber: "0001234567", bankCode: "058" } });
+// later (or from a transfer.success/failed webhook):
+const final = await pay.verifyTransfer(payout.transferId!); // { status: "success" | "failed" | "pending", ... }
+```
 
 ### Bank list & account resolution
 
