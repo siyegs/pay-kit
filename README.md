@@ -121,15 +121,35 @@ const event = pay.webhooks.construct(provider, rawBody, signature);
 - `initialize(params) -> { reference, authorizationUrl, accessCode?, raw }`
 - `verify(reference) -> { reference, status, amount, currency, paidAt?, channel?, customer?, raw }`
 - `refund(reference, options?) -> { reference, status, amount?, raw }` - full refund, or partial with `options.amount` (subunits)
+- `transfer(params) -> { reference, status, amount?, transferId?, recipientCode?, raw }` - send a payout to a bank account
 - `webhooks.construct(rawBody, signature) -> { type, reference, status?, amount?, currency?, raw }`
 
 `status` is normalized to `"success" | "failed" | "pending" | "abandoned"`. Errors are thrown as `PayKitError` with `code` in `provider_error | network_error | invalid_signature | config_error | verification_failed`.
+
+### Transfers / payouts
+
+Send money out to a bank account with one API across both providers. pay-kit handles the provider differences - Paystack needs a transfer recipient created first, Flutterwave takes the account inline - so you don't have to.
+
+```ts
+const payout = await pay.transfer({
+  amount: 500000, // subunits (kobo/cents)
+  reason: "Creator payout - July",
+  recipient: {
+    accountNumber: "0001234567",
+    bankCode: "058", // provider bank code
+    name: "Ada Lovelace",
+  },
+});
+// { reference, status: "pending" | "success" | "failed", transferId?, ... }
+```
+
+On a fallback client, `transfer(provider, params)` takes the provider **explicitly** and never falls through - re-sending a payout after a timeout could pay the recipient twice, so you name the rail and reconcile by `reference`.
 
 ## Roadmap
 
 - [x] Refunds (full & partial)
 - [x] **Provider fallback** (auto-retry the other provider on outage)
-- [ ] Transfers / payouts
+- [x] Transfers / payouts
 - [ ] Plans & subscriptions
 - [ ] Framework adapters (NestJS, Hono, Next.js route handlers)
 - [ ] Mock provider for offline development
