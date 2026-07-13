@@ -1,7 +1,7 @@
 {
   "name": "@siyegs/pay-kit",
-  "version": "0.1.0",
-  "description": "One typed SDK for African payment rails - unified Paystack & Flutterwave: initialize, verify, refund, and signature-verified webhooks, with provider fallback.",
+  "version": "0.2.0",
+  "description": "One typed SDK for African payment rails - unified Paystack & Flutterwave: initialize, verify, refund, transfer/payout, and signature-verified webhooks, with provider fallback.",
   "type": "module",
   "sideEffects": false,
   "repository": {
@@ -40,6 +40,8 @@
     "flutterwave",
     "payments",
     "payment-gateway",
+    "payouts",
+    "transfers",
     "nigeria",
     "africa",
     "fintech",
