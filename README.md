@@ -103,14 +103,28 @@ const event = pay.webhooks.construct(provider, rawBody, signature);
 - A charge started on one provider can only be verified/refunded on that provider, so `initialize` returns which `provider` handled it. **Persist `provider` alongside `reference`.**
 - Fallback is safest for *pre-charge* outages (provider unreachable). If a provider accepts the charge then the connection drops, retrying the other provider could double-charge - use idempotency at your order layer for that edge.
 
+## Testing with the mock provider
+
+Use `provider: "mock"` to exercise a full payment flow with **no API keys and no network** - ideal for local development, CI, and unit tests. It implements the same interface as the real providers, so your code stays identical; only the config changes.
+
+```ts
+const pay = createPayClient({ provider: "mock" }); // no secretKey needed
+
+const { reference } = await pay.initialize({ amount: 500000, email: "a@b.com" });
+const result = await pay.verify(reference); // { status: "success", amount: 500000, ... }
+await pay.transfer({ amount: 10000, recipient: { accountNumber: "0001234567", bankCode: "001" } });
+```
+
+The mock is **stateful per client**: a charge you `initialize` is remembered, so a later `verify` echoes the same amount and customer. An unknown reference verifies as `"abandoned"`, and each `createPayClient({ provider: "mock" })` gets its own isolated store. Swap `provider` back to `"paystack"` or `"flutterwave"` for production - nothing else changes.
+
 ## API
 
 ### `createPayClient(config)`
 
 | option             | type                          | notes                                              |
 | ------------------ | ----------------------------- | -------------------------------------------------- |
-| `provider`         | `"paystack" \| "flutterwave"` | required                                           |
-| `secretKey`        | `string`                      | required, server-side only                         |
+| `provider`         | `"paystack" \| "flutterwave" \| "mock"` | required                                 |
+| `secretKey`        | `string`                      | required for real providers, server-side only      |
 | `webhookSecret`    | `string`                      | required for Flutterwave webhooks (Secret hash)    |
 | `baseUrl`          | `string`                      | override API base (tests/proxies)                  |
 | `fetch`            | `typeof fetch`                | inject a fetch impl                                |
@@ -167,9 +181,9 @@ Bank codes are **provider-specific**, so list and resolve against the same provi
 - [x] **Provider fallback** (auto-retry the other provider on outage)
 - [x] Transfers / payouts
 - [x] Bank list & account resolution
+- [x] Mock provider for offline development & tests
 - [ ] Plans & subscriptions
 - [ ] Framework adapters (NestJS, Hono, Next.js route handlers)
-- [ ] Mock provider for offline development
 
 ## Development
 
