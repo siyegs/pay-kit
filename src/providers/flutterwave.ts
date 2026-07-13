@@ -9,6 +9,9 @@ import type {
   RefundOptions,
   RefundResult,
   RefundStatus,
+  TransferParams,
+  TransferResult,
+  TransferStatus,
   VerifyResult,
   WebhookEvent,
   WebhookEventType,
@@ -55,6 +58,22 @@ function mapRefundStatus(raw: unknown): RefundStatus {
     case "failed":
       return "failed";
     default:
+      return "pending";
+  }
+}
+
+function mapTransferStatus(raw: unknown): TransferStatus {
+  switch (raw) {
+    case "SUCCESSFUL":
+    case "successful":
+    case "success":
+    case "completed":
+      return "success";
+    case "FAILED":
+    case "failed":
+      return "failed";
+    default:
+      // "NEW" and "PENDING" mean the transfer is still processing.
       return "pending";
   }
 }
@@ -145,6 +164,32 @@ export function createFlutterwaveProvider(ctx: ProviderContext): PaymentProvider
         reference,
         status: mapRefundStatus(data.status),
         amount: refunded !== undefined ? toSubunits(refunded) : undefined,
+        raw: body,
+      };
+    },
+
+    async transfer(params: TransferParams): Promise<TransferResult> {
+      // Flutterwave takes the destination account inline - no recipient step.
+      const reference = params.reference ?? ctx.generateReference();
+      const currency = params.currency ?? params.recipient.currency ?? "NGN";
+      const body = await providerRequest(ctx, "flutterwave", `${base}/v3/transfers`, {
+        method: "POST",
+        body: JSON.stringify({
+          account_bank: params.recipient.bankCode,
+          account_number: params.recipient.accountNumber,
+          amount: toMajor(params.amount),
+          currency,
+          narration: params.reason,
+          reference,
+        }),
+      });
+
+      const data = (body.data ?? {}) as Record<string, unknown>;
+      return {
+        reference: String(data.reference ?? reference),
+        status: mapTransferStatus(data.status),
+        amount: data.amount !== undefined ? toSubunits(data.amount) : params.amount,
+        transferId: data.id !== undefined ? String(data.id) : undefined,
         raw: body,
       };
     },
