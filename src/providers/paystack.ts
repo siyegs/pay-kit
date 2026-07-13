@@ -200,6 +200,27 @@ export function createPaystackProvider(ctx: ProviderContext): PaymentProvider {
       };
     },
 
+    async verifyTransfer(transferId: string): Promise<TransferResult> {
+      // Paystack's "fetch a transfer" accepts the transfer id or code.
+      const body = await providerRequest(
+        ctx,
+        "paystack",
+        `${base}/transfer/${encodeURIComponent(transferId)}`,
+        { method: "GET" },
+      );
+
+      const data = (body.data ?? {}) as Record<string, unknown>;
+      const recipient = (data.recipient ?? {}) as Record<string, unknown>;
+      return {
+        reference: String(data.reference ?? transferId),
+        status: mapTransferStatus(data.status),
+        amount: data.amount !== undefined ? Number(data.amount) : undefined,
+        transferId: data.transfer_code ? String(data.transfer_code) : transferId,
+        recipientCode: recipient.recipient_code ? String(recipient.recipient_code) : undefined,
+        raw: body,
+      };
+    },
+
     async resolveAccount(params: ResolveAccountParams): Promise<ResolvedAccount> {
       const query = new URLSearchParams({
         account_number: params.accountNumber,
