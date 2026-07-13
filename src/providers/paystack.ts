@@ -2,14 +2,18 @@ import { createHmac } from "node:crypto";
 import { PayKitError } from "../errors";
 import { providerRequest, safeEqual } from "../internal";
 import type {
+  Bank,
   InitializeParams,
   InitializeResult,
+  ListBanksOptions,
   PaymentProvider,
   PaymentStatus,
   ProviderContext,
   RefundOptions,
   RefundResult,
   RefundStatus,
+  ResolveAccountParams,
+  ResolvedAccount,
   TransferParams,
   TransferResult,
   TransferStatus,
@@ -19,6 +23,17 @@ import type {
 } from "../types";
 
 const PAYSTACK_BASE = "https://api.paystack.co";
+
+/** Paystack's `/bank` list is filtered by currency, so map country -> currency. */
+const COUNTRY_CURRENCY: Record<string, string> = {
+  NG: "NGN",
+  GH: "GHS",
+  KE: "KES",
+  ZA: "ZAR",
+  CI: "XOF",
+  EG: "EGP",
+  US: "USD",
+};
 
 /** Paystack uses subunits (kobo) natively - matches pay-kit's canonical unit. */
 function mapStatus(raw: unknown): PaymentStatus {
@@ -183,6 +198,38 @@ export function createPaystackProvider(ctx: ProviderContext): PaymentProvider {
         recipientCode,
         raw: body,
       };
+    },
+
+    async resolveAccount(params: ResolveAccountParams): Promise<ResolvedAccount> {
+      const query = new URLSearchParams({
+        account_number: params.accountNumber,
+        bank_code: params.bankCode,
+      });
+      const body = await providerRequest(ctx, "paystack", `${base}/bank/resolve?${query}`, {
+        method: "GET",
+      });
+
+      const data = (body.data ?? {}) as Record<string, unknown>;
+      return {
+        accountNumber: String(data.account_number ?? params.accountNumber),
+        accountName: String(data.account_name ?? ""),
+        bankCode: params.bankCode,
+        raw: body,
+      };
+    },
+
+    async listBanks(options?: ListBanksOptions): Promise<Bank[]> {
+      const country = (options?.country ?? "NG").toUpperCase();
+      const currency = COUNTRY_CURRENCY[country] ?? "NGN";
+      const body = await providerRequest(ctx, "paystack", `${base}/bank?currency=${currency}`, {
+        method: "GET",
+      });
+
+      const list = Array.isArray(body.data) ? body.data : [];
+      return list.map((entry) => {
+        const bank = (entry ?? {}) as Record<string, unknown>;
+        return { name: String(bank.name ?? ""), code: String(bank.code ?? "") };
+      });
     },
 
     constructWebhookEvent(rawBody: string, signature: string): WebhookEvent {
