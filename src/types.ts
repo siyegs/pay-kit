@@ -174,6 +174,7 @@ export interface PaymentProvider {
   verify(reference: string): Promise<VerifyResult>;
   refund(reference: string, options?: RefundOptions): Promise<RefundResult>;
   transfer(params: TransferParams): Promise<TransferResult>;
+  verifyTransfer(transferId: string): Promise<TransferResult>;
   resolveAccount(params: ResolveAccountParams): Promise<ResolvedAccount>;
   listBanks(options?: ListBanksOptions): Promise<Bank[]>;
   constructWebhookEvent(rawBody: string, signature: string): WebhookEvent;
@@ -207,6 +208,11 @@ export interface PayClient {
   refund(reference: string, options?: RefundOptions): Promise<RefundResult>;
   /** Send a payout to a bank account. Server-side only. */
   transfer(params: TransferParams): Promise<TransferResult>;
+  /**
+   * Check the final state of a payout (they settle asynchronously). Pass the
+   * `transferId` returned by `transfer()`.
+   */
+  verifyTransfer(transferId: string): Promise<TransferResult>;
   /** Resolve an account number to its holder name before paying out. */
   resolveAccount(params: ResolveAccountParams): Promise<ResolvedAccount>;
   /** List the provider's supported banks (for a payout bank picker). */
@@ -260,6 +266,8 @@ export interface FallbackClient {
    * double payout, so you must name the provider and reconcile by reference.
    */
   transfer(provider: ProviderName, params: TransferParams): Promise<TransferResult>;
+  /** Check a payout's final state on the provider it was sent through. */
+  verifyTransfer(provider: ProviderName, transferId: string): Promise<TransferResult>;
   /**
    * Resolve an account via a specific provider. Bank codes are provider-specific,
    * so use the same provider you listed the bank from.
