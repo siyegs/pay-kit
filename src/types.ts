@@ -181,8 +181,11 @@ export interface PaymentProvider {
 
 export interface PayClientConfig {
   provider: ProviderName;
-  /** Provider secret key. Server-side only - never expose to the browser. */
-  secretKey: string;
+  /**
+   * Provider secret key. Server-side only - never expose to the browser.
+   * Required for real providers; ignored (and optional) for `provider: "mock"`.
+   */
+  secretKey?: string;
   /**
    * Webhook verification secret. Flutterwave requires this ("Secret hash").
    * Paystack verifies webhooks with the secretKey, so this is optional there.

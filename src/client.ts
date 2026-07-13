@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { PayKitError } from "./errors";
 import { createPaystackProvider } from "./providers/paystack";
 import { createFlutterwaveProvider } from "./providers/flutterwave";
+import { createMockProvider } from "./providers/mock";
 import type {
   PayClient,
   PayClientConfig,
@@ -15,6 +16,8 @@ function resolveProvider(config: PayClientConfig, ctx: ProviderContext): Payment
       return createPaystackProvider(ctx);
     case "flutterwave":
       return createFlutterwaveProvider(ctx);
+    case "mock":
+      return createMockProvider(ctx);
     default:
       throw new PayKitError(`Unknown provider: ${String(config.provider)}`, {
         code: "config_error",
@@ -30,12 +33,15 @@ function resolveProvider(config: PayClientConfig, ctx: ProviderContext): Payment
  * const { authorizationUrl, reference } = await pay.initialize({ amount: 500000, email: "a@b.com" });
  */
 export function createPayClient(config: PayClientConfig): PayClient {
-  if (!config.secretKey) {
+  const isMock = config.provider === "mock";
+
+  // The mock provider needs no credentials and never touches the network.
+  if (!isMock && !config.secretKey) {
     throw new PayKitError("`secretKey` is required", { code: "config_error" });
   }
 
   const fetchImpl = config.fetch ?? globalThis.fetch;
-  if (typeof fetchImpl !== "function") {
+  if (!isMock && typeof fetchImpl !== "function") {
     throw new PayKitError(
       "No fetch implementation found. Use Node >= 18 or pass `config.fetch`.",
       { code: "config_error" },
@@ -43,7 +49,7 @@ export function createPayClient(config: PayClientConfig): PayClient {
   }
 
   const ctx: ProviderContext = {
-    secretKey: config.secretKey,
+    secretKey: config.secretKey ?? "",
     webhookSecret: config.webhookSecret,
     baseUrl: config.baseUrl,
     fetch: fetchImpl,
