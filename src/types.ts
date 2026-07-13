@@ -1,5 +1,8 @@
-/** Supported providers. */
-export type ProviderName = "paystack" | "flutterwave";
+/**
+ * Supported providers. `"mock"` is an in-memory provider for local development
+ * and tests - it needs no API keys and makes no network calls.
+ */
+export type ProviderName = "paystack" | "flutterwave" | "mock";
 
 /** ISO-4217 currency codes commonly supported across African rails. */
 export type Currency = "NGN" | "USD" | "GHS" | "KES" | "ZAR" | (string & {});
