@@ -140,6 +140,73 @@ describe("paystack: refund", () => {
   });
 });
 
+describe("paystack: transfer", () => {
+  it("creates a recipient, then sends the payout in kobo", async () => {
+    const { fetch, calls } = mockFetch((url) => {
+      if (url.includes("/transferrecipient")) {
+        return { body: { status: true, data: { recipient_code: "RCP_abc" } } };
+      }
+      return {
+        body: {
+          status: true,
+          data: { status: "success", reference: "trf_1", amount: 500000, transfer_code: "TRF_xyz" },
+        },
+      };
+    });
+    const pay = createPayClient({ provider: "paystack", secretKey: SECRET, fetch });
+
+    const res = await pay.transfer({
+      amount: 500000,
+      reference: "trf_1",
+      reason: "payout",
+      recipient: { accountNumber: "0001234567", bankCode: "058", name: "Ada" },
+    });
+
+    expect(res.status).toBe("success");
+    expect(res.reference).toBe("trf_1");
+    expect(res.recipientCode).toBe("RCP_abc");
+    expect(res.transferId).toBe("TRF_xyz");
+    expect(res.amount).toBe(500000);
+
+    expect(calls[0]!.url).toContain("/transferrecipient");
+    const recipient = jsonBody(calls[0]!.init);
+    expect(recipient.type).toBe("nuban");
+    expect(recipient.account_number).toBe("0001234567");
+    expect(recipient.bank_code).toBe("058");
+
+    expect(calls[1]!.url).toContain("/transfer");
+    const transfer = jsonBody(calls[1]!.init);
+    expect(transfer.amount).toBe(500000);
+    expect(transfer.recipient).toBe("RCP_abc");
+    expect(transfer.source).toBe("balance");
+  });
+
+  it("maps a pending transfer status", async () => {
+    const { fetch } = mockFetch((url) => {
+      if (url.includes("/transferrecipient")) {
+        return { body: { status: true, data: { recipient_code: "RCP_1" } } };
+      }
+      return { body: { status: true, data: { status: "pending", reference: "trf_2" } } };
+    });
+    const pay = createPayClient({ provider: "paystack", secretKey: SECRET, fetch });
+
+    const res = await pay.transfer({
+      amount: 10000,
+      recipient: { accountNumber: "0001234567", bankCode: "058" },
+    });
+    expect(res.status).toBe("pending");
+  });
+
+  it("throws when no recipient code comes back", async () => {
+    const { fetch } = mockFetch(() => ({ body: { status: true, data: {} } }));
+    const pay = createPayClient({ provider: "paystack", secretKey: SECRET, fetch });
+
+    await expect(
+      pay.transfer({ amount: 10000, recipient: { accountNumber: "0001234567", bankCode: "058" } }),
+    ).rejects.toThrow(PayKitError);
+  });
+});
+
 describe("paystack: webhooks", () => {
   const raw = JSON.stringify({
     event: "charge.success",

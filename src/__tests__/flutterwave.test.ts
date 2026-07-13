@@ -81,6 +81,50 @@ describe("flutterwave: refund", () => {
   });
 });
 
+describe("flutterwave: transfer", () => {
+  it("sends the payout inline and converts subunits to major units", async () => {
+    const { fetch, calls } = mockFetch(() => ({
+      body: {
+        status: "success",
+        data: { id: 285959, reference: "trf_1", status: "NEW", amount: 5000 },
+      },
+    }));
+    const pay = createPayClient({ provider: "flutterwave", secretKey: SECRET, fetch });
+
+    const res = await pay.transfer({
+      amount: 500000,
+      reference: "trf_1",
+      reason: "payout",
+      recipient: { accountNumber: "0690000040", bankCode: "044" },
+    });
+
+    expect(res.status).toBe("pending"); // NEW -> pending
+    expect(res.reference).toBe("trf_1");
+    expect(res.transferId).toBe("285959");
+
+    expect(calls[0]!.url).toContain("/v3/transfers");
+    const sent = jsonBody(calls[0]!.init);
+    expect(sent.account_bank).toBe("044");
+    expect(sent.account_number).toBe("0690000040");
+    expect(sent.amount).toBe(5000); // 500000 kobo -> 5000 naira
+    expect(sent.narration).toBe("payout");
+  });
+
+  it("maps a successful transfer", async () => {
+    const { fetch } = mockFetch(() => ({
+      body: { status: "success", data: { id: 1, status: "SUCCESSFUL", amount: 100 } },
+    }));
+    const pay = createPayClient({ provider: "flutterwave", secretKey: SECRET, fetch });
+
+    const res = await pay.transfer({
+      amount: 10000,
+      recipient: { accountNumber: "0690000040", bankCode: "044" },
+    });
+    expect(res.status).toBe("success");
+    expect(res.amount).toBe(10000);
+  });
+});
+
 describe("flutterwave: webhooks", () => {
   const raw = JSON.stringify({
     event: "charge.completed",

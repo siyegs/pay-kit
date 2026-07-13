@@ -101,6 +101,22 @@ describe("fallback: routing", () => {
     expect(urls[0]).toContain("api.paystack.co");
   });
 
+  it("routes transfer to the named provider only (no fallback)", async () => {
+    const { fetch, urls } = router({
+      flutterwave: () => ({ body: { status: "success", data: { id: 1, status: "SUCCESSFUL", amount: 100 } } }),
+    });
+    const pay = createFallbackClient({ providers: PROVIDERS, fetch });
+
+    const res = await pay.transfer("flutterwave", {
+      amount: 10000,
+      recipient: { accountNumber: "0690000040", bankCode: "044" },
+    });
+
+    expect(res.status).toBe("success");
+    // Only Flutterwave is ever called - a payout must not be retried elsewhere.
+    expect(urls.every((u) => u.includes("api.flutterwave.com"))).toBe(true);
+  });
+
   it("client(provider) returns a usable single-provider client", async () => {
     const { fetch } = router({
       paystack: () => ({ body: { status: true, data: { authorization_url: "u", reference: "r" } } }),
