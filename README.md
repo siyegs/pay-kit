@@ -122,6 +122,8 @@ const event = pay.webhooks.construct(provider, rawBody, signature);
 - `verify(reference) -> { reference, status, amount, currency, paidAt?, channel?, customer?, raw }`
 - `refund(reference, options?) -> { reference, status, amount?, raw }` - full refund, or partial with `options.amount` (subunits)
 - `transfer(params) -> { reference, status, amount?, transferId?, recipientCode?, raw }` - send a payout to a bank account
+- `resolveAccount({ accountNumber, bankCode }) -> { accountNumber, accountName, bankCode?, raw }` - confirm an account holder's name before paying out
+- `listBanks(options?) -> { name, code }[]` - supported banks for a payout bank picker (`options.country`, ISO-2, defaults NG)
 - `webhooks.construct(rawBody, signature) -> { type, reference, status?, amount?, currency?, raw }`
 
 `status` is normalized to `"success" | "failed" | "pending" | "abandoned"`. Errors are thrown as `PayKitError` with `code` in `provider_error | network_error | invalid_signature | config_error | verification_failed`.
@@ -145,11 +147,26 @@ const payout = await pay.transfer({
 
 On a fallback client, `transfer(provider, params)` takes the provider **explicitly** and never falls through - re-sending a payout after a timeout could pay the recipient twice, so you name the rail and reconcile by `reference`.
 
+### Bank list & account resolution
+
+Populate a bank picker and confirm the account holder's name before you send money - the classic "is this really who I think it is?" step.
+
+```ts
+const banks = await pay.listBanks({ country: "NG" });
+// [{ name: "Access Bank", code: "044" }, { name: "GTBank", code: "058" }, ...]
+
+const account = await pay.resolveAccount({ accountNumber: "0001234567", bankCode: "058" });
+// { accountName: "ADA LOVELACE", accountNumber: "0001234567", ... } -> show, confirm, then transfer
+```
+
+Bank codes are **provider-specific**, so list and resolve against the same provider you transfer with. On a fallback client both take the provider explicitly: `listBanks(provider, options?)`, `resolveAccount(provider, params)`.
+
 ## Roadmap
 
 - [x] Refunds (full & partial)
 - [x] **Provider fallback** (auto-retry the other provider on outage)
 - [x] Transfers / payouts
+- [x] Bank list & account resolution
 - [ ] Plans & subscriptions
 - [ ] Framework adapters (NestJS, Hono, Next.js route handlers)
 - [ ] Mock provider for offline development
