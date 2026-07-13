@@ -44,6 +44,7 @@ interface StoredCharge {
 
 export function createMockProvider(ctx: ProviderContext): PaymentProvider {
   const charges = new Map<string, StoredCharge>();
+  const transfers = new Map<string, TransferResult>();
 
   return {
     name: "mock",
@@ -102,13 +103,23 @@ export function createMockProvider(ctx: ProviderContext): PaymentProvider {
 
     async transfer(params: TransferParams): Promise<TransferResult> {
       const reference = params.reference ?? ctx.generateReference();
-      return {
+      const transferId = `mock_trf_${reference}`;
+      const result: TransferResult = {
         reference,
         status: "success",
         amount: params.amount,
-        transferId: `mock_trf_${reference}`,
+        transferId,
         raw: { mock: true, reference, recipient: params.recipient },
       };
+      transfers.set(transferId, result);
+      return result;
+    },
+
+    async verifyTransfer(transferId: string): Promise<TransferResult> {
+      const stored = transfers.get(transferId);
+      if (stored) return stored;
+      // Unknown id verifies as pending - the payout was never seen here.
+      return { reference: transferId, status: "pending", transferId, raw: { mock: true, found: false } };
     },
 
     async resolveAccount(params: ResolveAccountParams): Promise<ResolvedAccount> {
