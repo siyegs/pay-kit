@@ -95,6 +95,8 @@ export function createFallbackClient(config: FallbackClientConfig): FallbackClie
     // providers could pay the recipient twice. Name the provider explicitly.
     transfer: (provider, params) => getClient(provider).transfer(params),
 
+    verifyTransfer: (provider, transferId) => getClient(provider).verifyTransfer(transferId),
+
     // Bank codes are provider-specific, so resolve/list against a named provider.
     resolveAccount: (provider, params) => getClient(provider).resolveAccount(params),
 
