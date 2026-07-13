@@ -198,6 +198,25 @@ export function createFlutterwaveProvider(ctx: ProviderContext): PaymentProvider
       };
     },
 
+    async verifyTransfer(transferId: string): Promise<TransferResult> {
+      // Flutterwave keys transfer lookups by the numeric transfer id.
+      const body = await providerRequest(
+        ctx,
+        "flutterwave",
+        `${base}/v3/transfers/${encodeURIComponent(transferId)}`,
+        { method: "GET" },
+      );
+
+      const data = (body.data ?? {}) as Record<string, unknown>;
+      return {
+        reference: String(data.reference ?? transferId),
+        status: mapTransferStatus(data.status),
+        amount: data.amount !== undefined ? toSubunits(data.amount) : undefined,
+        transferId: data.id !== undefined ? String(data.id) : transferId,
+        raw: body,
+      };
+    },
+
     async resolveAccount(params: ResolveAccountParams): Promise<ResolvedAccount> {
       const body = await providerRequest(ctx, "flutterwave", `${base}/v3/accounts/resolve`, {
         method: "POST",
