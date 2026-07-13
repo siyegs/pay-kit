@@ -84,6 +84,46 @@ export interface RefundResult {
   raw: unknown;
 }
 
+/** Normalized transfer/payout status across providers. */
+export type TransferStatus = "pending" | "success" | "failed";
+
+/** Bank account a payout is sent to. */
+export interface TransferRecipient {
+  /** Destination bank account number (NUBAN for NGN). */
+  accountNumber: string;
+  /** Provider bank code for the destination bank. */
+  bankCode: string;
+  /** Account holder name. Recommended - Paystack stores it on the recipient. */
+  name?: string;
+  /** Recipient currency. Defaults to the transfer currency. */
+  currency?: Currency;
+}
+
+export interface TransferParams {
+  /** Amount to send in subunits (kobo/cents). */
+  amount: number;
+  /** Where the money goes. */
+  recipient: TransferRecipient;
+  currency?: Currency;
+  /** Narration / reason shown on the transfer. */
+  reason?: string;
+  /** Idempotent reference to reconcile against. One is generated if omitted. */
+  reference?: string;
+}
+
+export interface TransferResult {
+  /** Reference to persist and reconcile against. */
+  reference: string;
+  status: TransferStatus;
+  /** Amount sent in subunits, when reported by the provider. */
+  amount?: number;
+  /** Provider transfer id/code (Paystack transfer_code, Flutterwave id). */
+  transferId?: string;
+  /** Paystack recipient code created for this payout, when applicable. */
+  recipientCode?: string;
+  raw: unknown;
+}
+
 /** Internal context handed to each provider adapter. */
 export interface ProviderContext {
   secretKey: string;
@@ -98,6 +138,7 @@ export interface PaymentProvider {
   initialize(params: InitializeParams): Promise<InitializeResult>;
   verify(reference: string): Promise<VerifyResult>;
   refund(reference: string, options?: RefundOptions): Promise<RefundResult>;
+  transfer(params: TransferParams): Promise<TransferResult>;
   constructWebhookEvent(rawBody: string, signature: string): WebhookEvent;
 }
 
@@ -124,6 +165,8 @@ export interface PayClient {
   verify(reference: string): Promise<VerifyResult>;
   /** Refund a transaction in full, or partially with `options.amount` (subunits). */
   refund(reference: string, options?: RefundOptions): Promise<RefundResult>;
+  /** Send a payout to a bank account. Server-side only. */
+  transfer(params: TransferParams): Promise<TransferResult>;
   webhooks: {
     /**
      * Verify a raw webhook body against its signature header and return a
@@ -167,6 +210,12 @@ export interface FallbackClient {
     reference: string,
     options?: RefundOptions,
   ): Promise<RefundResult>;
+  /**
+   * Send a payout via a specific provider. Transfers are deliberately NOT
+   * auto-retried across providers - re-sending money after a timeout risks a
+   * double payout, so you must name the provider and reconcile by reference.
+   */
+  transfer(provider: ProviderName, params: TransferParams): Promise<TransferResult>;
   webhooks: {
     construct(provider: ProviderName, rawBody: string, signature: string): WebhookEvent;
   };
