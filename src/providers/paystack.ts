@@ -10,6 +10,9 @@ import type {
   RefundOptions,
   RefundResult,
   RefundStatus,
+  TransferParams,
+  TransferResult,
+  TransferStatus,
   VerifyResult,
   WebhookEvent,
   WebhookEventType,
@@ -27,6 +30,21 @@ function mapStatus(raw: unknown): PaymentStatus {
     case "abandoned":
       return "abandoned";
     default:
+      return "pending";
+  }
+}
+
+function mapTransferStatus(raw: unknown): TransferStatus {
+  switch (raw) {
+    case "success":
+    case "successful":
+      return "success";
+    case "failed":
+    case "reversed":
+    case "abandoned":
+      return "failed";
+    default:
+      // "pending" and "otp" both mean the transfer is still in flight.
       return "pending";
   }
 }
@@ -113,6 +131,56 @@ export function createPaystackProvider(ctx: ProviderContext): PaymentProvider {
         reference: String(transaction.reference ?? reference),
         status: mapRefundStatus(data.status),
         amount: data.amount !== undefined ? Number(data.amount) : undefined,
+        raw: body,
+      };
+    },
+
+    async transfer(params: TransferParams): Promise<TransferResult> {
+      const reference = params.reference ?? ctx.generateReference();
+      const currency = params.currency ?? params.recipient.currency ?? "NGN";
+
+      // Paystack requires a transfer recipient before a payout can be sent.
+      const recipientBody = await providerRequest(ctx, "paystack", `${base}/transferrecipient`, {
+        method: "POST",
+        body: JSON.stringify({
+          type: "nuban",
+          name: params.recipient.name ?? params.recipient.accountNumber,
+          account_number: params.recipient.accountNumber,
+          bank_code: params.recipient.bankCode,
+          currency,
+        }),
+      });
+      const recipientData = (recipientBody.data ?? {}) as Record<string, unknown>;
+      const recipientCode = recipientData.recipient_code
+        ? String(recipientData.recipient_code)
+        : undefined;
+      if (!recipientCode) {
+        throw new PayKitError("Paystack did not return a transfer recipient code", {
+          code: "provider_error",
+          provider: "paystack",
+          raw: recipientBody,
+        });
+      }
+
+      const body = await providerRequest(ctx, "paystack", `${base}/transfer`, {
+        method: "POST",
+        body: JSON.stringify({
+          source: "balance",
+          amount: params.amount,
+          recipient: recipientCode,
+          currency,
+          reason: params.reason,
+          reference,
+        }),
+      });
+
+      const data = (body.data ?? {}) as Record<string, unknown>;
+      return {
+        reference: String(data.reference ?? reference),
+        status: mapTransferStatus(data.status),
+        amount: data.amount !== undefined ? Number(data.amount) : params.amount,
+        transferId: data.transfer_code ? String(data.transfer_code) : undefined,
+        recipientCode,
         raw: body,
       };
     },
