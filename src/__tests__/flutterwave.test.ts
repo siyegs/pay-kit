@@ -125,6 +125,44 @@ describe("flutterwave: transfer", () => {
   });
 });
 
+describe("flutterwave: resolveAccount", () => {
+  it("posts account_number + account_bank and returns the name", async () => {
+    const { fetch, calls } = mockFetch(() => ({
+      body: { status: "success", data: { account_number: "0690000040", account_name: "ADA LOVELACE" } },
+    }));
+    const pay = createPayClient({ provider: "flutterwave", secretKey: SECRET, fetch });
+
+    const res = await pay.resolveAccount({ accountNumber: "0690000040", bankCode: "044" });
+    expect(res.accountName).toBe("ADA LOVELACE");
+    expect(calls[0]!.url).toContain("/v3/accounts/resolve");
+    const sent = jsonBody(calls[0]!.init);
+    expect(sent.account_number).toBe("0690000040");
+    expect(sent.account_bank).toBe("044");
+  });
+});
+
+describe("flutterwave: listBanks", () => {
+  it("lists banks by country code", async () => {
+    const { fetch, calls } = mockFetch(() => ({
+      body: {
+        status: "success",
+        data: [
+          { id: 1, name: "Access Bank", code: "044" },
+          { id: 2, name: "GTBank", code: "058" },
+        ],
+      },
+    }));
+    const pay = createPayClient({ provider: "flutterwave", secretKey: SECRET, fetch });
+
+    const banks = await pay.listBanks({ country: "ng" });
+    expect(banks).toEqual([
+      { name: "Access Bank", code: "044" },
+      { name: "GTBank", code: "058" },
+    ]);
+    expect(calls[0]!.url).toContain("/v3/banks/NG");
+  });
+});
+
 describe("flutterwave: webhooks", () => {
   const raw = JSON.stringify({
     event: "charge.completed",

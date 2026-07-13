@@ -207,6 +207,53 @@ describe("paystack: transfer", () => {
   });
 });
 
+describe("paystack: resolveAccount", () => {
+  it("returns the account name for a number + bank code", async () => {
+    const { fetch, calls } = mockFetch(() => ({
+      body: { status: true, data: { account_number: "0001234567", account_name: "ADA LOVELACE" } },
+    }));
+    const pay = createPayClient({ provider: "paystack", secretKey: SECRET, fetch });
+
+    const res = await pay.resolveAccount({ accountNumber: "0001234567", bankCode: "058" });
+    expect(res.accountName).toBe("ADA LOVELACE");
+    expect(res.accountNumber).toBe("0001234567");
+    expect(res.bankCode).toBe("058");
+    expect(calls[0]!.url).toContain("/bank/resolve?");
+    expect(calls[0]!.url).toContain("account_number=0001234567");
+    expect(calls[0]!.url).toContain("bank_code=058");
+  });
+});
+
+describe("paystack: listBanks", () => {
+  it("lists banks by currency derived from country", async () => {
+    const { fetch, calls } = mockFetch(() => ({
+      body: {
+        status: true,
+        data: [
+          { name: "Access Bank", code: "044", extra: "ignored" },
+          { name: "GTBank", code: "058" },
+        ],
+      },
+    }));
+    const pay = createPayClient({ provider: "paystack", secretKey: SECRET, fetch });
+
+    const banks = await pay.listBanks({ country: "GH" });
+    expect(banks).toEqual([
+      { name: "Access Bank", code: "044" },
+      { name: "GTBank", code: "058" },
+    ]);
+    expect(calls[0]!.url).toContain("/bank?currency=GHS");
+  });
+
+  it("defaults to NGN when no country is given", async () => {
+    const { fetch, calls } = mockFetch(() => ({ body: { status: true, data: [] } }));
+    const pay = createPayClient({ provider: "paystack", secretKey: SECRET, fetch });
+
+    await pay.listBanks();
+    expect(calls[0]!.url).toContain("currency=NGN");
+  });
+});
+
 describe("paystack: webhooks", () => {
   const raw = JSON.stringify({
     event: "charge.success",
