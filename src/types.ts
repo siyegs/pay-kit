@@ -124,6 +124,38 @@ export interface TransferResult {
   raw: unknown;
 }
 
+export interface ResolveAccountParams {
+  /** Bank account number to look up. */
+  accountNumber: string;
+  /** Provider bank code for the account's bank (from `listBanks`). */
+  bankCode: string;
+}
+
+export interface ResolvedAccount {
+  accountNumber: string;
+  /** Registered account holder name, for confirm-before-you-pay flows. */
+  accountName: string;
+  /** The bank code the lookup was performed against. */
+  bankCode?: string;
+  raw: unknown;
+}
+
+/** A bank supported by the provider, for populating a payout bank picker. */
+export interface Bank {
+  name: string;
+  /** Bank code to pass as `bankCode` in transfers and account resolution. */
+  code: string;
+}
+
+export interface ListBanksOptions {
+  /**
+   * ISO-3166 alpha-2 country code (NG, GH, KE, ZA, ...). Defaults to NG.
+   * Bank codes are provider-specific, so resolve/transfer with codes from the
+   * same provider you listed them from.
+   */
+  country?: string;
+}
+
 /** Internal context handed to each provider adapter. */
 export interface ProviderContext {
   secretKey: string;
@@ -139,6 +171,8 @@ export interface PaymentProvider {
   verify(reference: string): Promise<VerifyResult>;
   refund(reference: string, options?: RefundOptions): Promise<RefundResult>;
   transfer(params: TransferParams): Promise<TransferResult>;
+  resolveAccount(params: ResolveAccountParams): Promise<ResolvedAccount>;
+  listBanks(options?: ListBanksOptions): Promise<Bank[]>;
   constructWebhookEvent(rawBody: string, signature: string): WebhookEvent;
 }
 
@@ -167,6 +201,10 @@ export interface PayClient {
   refund(reference: string, options?: RefundOptions): Promise<RefundResult>;
   /** Send a payout to a bank account. Server-side only. */
   transfer(params: TransferParams): Promise<TransferResult>;
+  /** Resolve an account number to its holder name before paying out. */
+  resolveAccount(params: ResolveAccountParams): Promise<ResolvedAccount>;
+  /** List the provider's supported banks (for a payout bank picker). */
+  listBanks(options?: ListBanksOptions): Promise<Bank[]>;
   webhooks: {
     /**
      * Verify a raw webhook body against its signature header and return a
@@ -216,6 +254,16 @@ export interface FallbackClient {
    * double payout, so you must name the provider and reconcile by reference.
    */
   transfer(provider: ProviderName, params: TransferParams): Promise<TransferResult>;
+  /**
+   * Resolve an account via a specific provider. Bank codes are provider-specific,
+   * so use the same provider you listed the bank from.
+   */
+  resolveAccount(
+    provider: ProviderName,
+    params: ResolveAccountParams,
+  ): Promise<ResolvedAccount>;
+  /** List a specific provider's supported banks. */
+  listBanks(provider: ProviderName, options?: ListBanksOptions): Promise<Bank[]>;
   webhooks: {
     construct(provider: ProviderName, rawBody: string, signature: string): WebhookEvent;
   };
