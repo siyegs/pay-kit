@@ -91,6 +91,10 @@ export function createFallbackClient(config: FallbackClientConfig): FallbackClie
 
     refund: (provider, reference, options) => getClient(provider).refund(reference, options),
 
+    // Payouts are single-provider on purpose - retrying a transfer across
+    // providers could pay the recipient twice. Name the provider explicitly.
+    transfer: (provider, params) => getClient(provider).transfer(params),
+
     webhooks: {
       construct: (provider, rawBody, signature) =>
         getClient(provider).webhooks.construct(rawBody, signature),
