@@ -1,14 +1,18 @@
 import { PayKitError } from "../errors";
 import { providerRequest, safeEqual } from "../internal";
 import type {
+  Bank,
   InitializeParams,
   InitializeResult,
+  ListBanksOptions,
   PaymentProvider,
   PaymentStatus,
   ProviderContext,
   RefundOptions,
   RefundResult,
   RefundStatus,
+  ResolveAccountParams,
+  ResolvedAccount,
   TransferParams,
   TransferResult,
   TransferStatus,
@@ -192,6 +196,41 @@ export function createFlutterwaveProvider(ctx: ProviderContext): PaymentProvider
         transferId: data.id !== undefined ? String(data.id) : undefined,
         raw: body,
       };
+    },
+
+    async resolveAccount(params: ResolveAccountParams): Promise<ResolvedAccount> {
+      const body = await providerRequest(ctx, "flutterwave", `${base}/v3/accounts/resolve`, {
+        method: "POST",
+        body: JSON.stringify({
+          account_number: params.accountNumber,
+          account_bank: params.bankCode,
+        }),
+      });
+
+      const data = (body.data ?? {}) as Record<string, unknown>;
+      return {
+        accountNumber: String(data.account_number ?? params.accountNumber),
+        accountName: String(data.account_name ?? ""),
+        bankCode: params.bankCode,
+        raw: body,
+      };
+    },
+
+    async listBanks(options?: ListBanksOptions): Promise<Bank[]> {
+      // Flutterwave keys its bank list by ISO-3166 alpha-2 country code.
+      const country = (options?.country ?? "NG").toUpperCase();
+      const body = await providerRequest(
+        ctx,
+        "flutterwave",
+        `${base}/v3/banks/${encodeURIComponent(country)}`,
+        { method: "GET" },
+      );
+
+      const list = Array.isArray(body.data) ? body.data : [];
+      return list.map((entry) => {
+        const bank = (entry ?? {}) as Record<string, unknown>;
+        return { name: String(bank.name ?? ""), code: String(bank.code ?? "") };
+      });
     },
 
     constructWebhookEvent(rawBody: string, signature: string): WebhookEvent {
