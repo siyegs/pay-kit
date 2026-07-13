@@ -70,6 +70,23 @@ describe("mock: refund & transfer", () => {
     expect(res.amount).toBe(10000);
     expect(res.transferId).toContain("mock_trf_");
   });
+
+  it("remembers a payout so verifyTransfer echoes it", async () => {
+    const pay = createPayClient({ provider: "mock" });
+    const sent = await pay.transfer({
+      amount: 10000,
+      recipient: { accountNumber: "0001234567", bankCode: "001" },
+    });
+
+    const checked = await pay.verifyTransfer(sent.transferId!);
+    expect(checked.status).toBe("success");
+    expect(checked.amount).toBe(10000);
+  });
+
+  it("verifies an unknown transfer as pending", async () => {
+    const pay = createPayClient({ provider: "mock" });
+    expect((await pay.verifyTransfer("nope")).status).toBe("pending");
+  });
 });
 
 describe("mock: banks & resolution", () => {

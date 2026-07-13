@@ -207,6 +207,39 @@ describe("paystack: transfer", () => {
   });
 });
 
+describe("paystack: verifyTransfer", () => {
+  it("fetches a transfer by id/code and normalizes status + amount", async () => {
+    const { fetch, calls } = mockFetch(() => ({
+      body: {
+        status: true,
+        data: {
+          status: "success",
+          reference: "trf_1",
+          amount: 500000,
+          transfer_code: "TRF_xyz",
+          recipient: { recipient_code: "RCP_abc" },
+        },
+      },
+    }));
+    const pay = createPayClient({ provider: "paystack", secretKey: SECRET, fetch });
+
+    const res = await pay.verifyTransfer("TRF_xyz");
+    expect(res.status).toBe("success");
+    expect(res.amount).toBe(500000);
+    expect(res.reference).toBe("trf_1");
+    expect(res.recipientCode).toBe("RCP_abc");
+    expect(calls[0]!.url).toContain("/transfer/TRF_xyz");
+  });
+
+  it("maps a still-processing transfer to pending", async () => {
+    const { fetch } = mockFetch(() => ({
+      body: { status: true, data: { status: "pending", reference: "trf_2" } },
+    }));
+    const pay = createPayClient({ provider: "paystack", secretKey: SECRET, fetch });
+    expect((await pay.verifyTransfer("TRF_2")).status).toBe("pending");
+  });
+});
+
 describe("paystack: resolveAccount", () => {
   it("returns the account name for a number + bank code", async () => {
     const { fetch, calls } = mockFetch(() => ({

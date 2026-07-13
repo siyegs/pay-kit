@@ -125,6 +125,24 @@ describe("flutterwave: transfer", () => {
   });
 });
 
+describe("flutterwave: verifyTransfer", () => {
+  it("fetches a transfer by id and converts amount to subunits", async () => {
+    const { fetch, calls } = mockFetch(() => ({
+      body: {
+        status: "success",
+        data: { id: 285959, reference: "trf_1", status: "SUCCESSFUL", amount: 5000 },
+      },
+    }));
+    const pay = createPayClient({ provider: "flutterwave", secretKey: SECRET, fetch });
+
+    const res = await pay.verifyTransfer("285959");
+    expect(res.status).toBe("success");
+    expect(res.amount).toBe(500000); // 5000 naira -> 500000 kobo
+    expect(res.transferId).toBe("285959");
+    expect(calls[0]!.url).toContain("/v3/transfers/285959");
+  });
+});
+
 describe("flutterwave: resolveAccount", () => {
   it("posts account_number + account_bank and returns the name", async () => {
     const { fetch, calls } = mockFetch(() => ({
