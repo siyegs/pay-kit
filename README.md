@@ -6,6 +6,9 @@
 [![npm](https://img.shields.io/badge/npm-%40siyegs%2Fpay--kit-cb3837)](https://www.npmjs.com/package/@siyegs/pay-kit)
 [![license](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
 [![types](https://img.shields.io/badge/types-included-3178c6)](./src/types.ts)
+[![status](https://img.shields.io/badge/status-beta-orange)](#status)
+
+> **Status: beta (pre-1.0).** pay-kit is fully typed and covered by unit tests, but those tests run against **mocked** provider responses - the SDK has **not yet been verified end to end against the live Paystack/Flutterwave sandboxes**. Endpoint paths and request/response field shapes are implemented from the providers' API docs; edge cases may differ in practice. Test against your provider sandboxes before using in production, pin an exact version, and please [open an issue](https://github.com/siyegs/pay-kit/issues) if a call doesn't match real behavior. The API may change before 1.0.
 
 Most serious African products integrate **both** Paystack and Flutterwave - for coverage, redundancy, and better rates. But their APIs, webhook signatures, error shapes, and currency units all differ, so teams re-write the same fragile glue every time. `pay-kit` gives you **one typed interface** over both.
 
@@ -250,6 +253,15 @@ Bank codes are **provider-specific**, so list and resolve against the same provi
 - [x] Marketplace splits (charge to subaccount)
 - [ ] Plans & subscriptions
 - [ ] Framework adapters (NestJS, Hono, Next.js route handlers)
+
+## Status
+
+pay-kit is **beta (pre-1.0)**. Here is exactly what is and is not verified:
+
+- **Verified:** TypeScript types compile, the package builds (ESM + CJS + `.d.ts`), and a full unit-test suite passes. The mock provider is exercised directly.
+- **Not yet verified:** the unit tests use **mocked** `fetch` responses, so real requests to Paystack and Flutterwave have not been exercised in CI. Endpoint paths and field mappings follow the providers' documented APIs but are not yet confirmed against the live sandboxes.
+
+Live-sandbox integration tests (run with real test keys) are on the roadmap. Until then, validate the flows you depend on against your own provider sandbox, and report mismatches via [issues](https://github.com/siyegs/pay-kit/issues).
 
 ## Development
 
