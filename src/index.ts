@@ -4,6 +4,7 @@ export { PayKitError, isRetryableError } from "./errors";
 export type { PayKitErrorCode, PayKitErrorOptions } from "./errors";
 export type {
   Bank,
+  ChargeAuthorizationParams,
   Currency,
   FallbackClient,
   FallbackClientConfig,

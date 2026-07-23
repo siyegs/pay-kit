@@ -63,6 +63,7 @@ export function createPayClient(config: PayClientConfig): PayClient {
     provider: provider.name,
     initialize: (params) => provider.initialize(params),
     verify: (reference) => provider.verify(reference),
+    chargeAuthorization: (params) => provider.chargeAuthorization(params),
     refund: (reference, options) => provider.refund(reference, options),
     transfer: (params) => provider.transfer(params),
     verifyTransfer: (transferId) => provider.verifyTransfer(transferId),

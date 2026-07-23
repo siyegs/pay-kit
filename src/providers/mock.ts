@@ -1,6 +1,7 @@
 import { PayKitError } from "../errors";
 import type {
   Bank,
+  ChargeAuthorizationParams,
   InitializeParams,
   InitializeResult,
   ListBanksOptions,
@@ -43,6 +44,7 @@ interface StoredCharge {
   currency: string;
   email: string;
   status: PaymentStatus;
+  authorization: string;
 }
 
 export function createMockProvider(ctx: ProviderContext): PaymentProvider {
@@ -62,6 +64,7 @@ export function createMockProvider(ctx: ProviderContext): PaymentProvider {
         currency,
         email: params.email,
         status: "success",
+        authorization: `mock_auth_${reference}`,
       });
       return {
         reference,
@@ -90,7 +93,31 @@ export function createMockProvider(ctx: ProviderContext): PaymentProvider {
         currency: charge.currency,
         channel: "mock",
         customer: { email: charge.email },
+        authorization: charge.authorization,
         raw: { mock: true, ...charge },
+      };
+    },
+
+    async chargeAuthorization(params: ChargeAuthorizationParams): Promise<VerifyResult> {
+      const reference = params.reference ?? ctx.generateReference();
+      const currency = params.currency ?? "NGN";
+      charges.set(reference, {
+        reference,
+        amount: params.amount,
+        currency,
+        email: params.email,
+        status: "success",
+        authorization: params.authorizationCode,
+      });
+      return {
+        reference,
+        status: "success",
+        amount: params.amount,
+        currency,
+        channel: "mock",
+        customer: { email: params.email },
+        authorization: params.authorizationCode,
+        raw: { mock: true, reused: params.authorizationCode },
       };
     },
 

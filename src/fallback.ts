@@ -89,6 +89,9 @@ export function createFallbackClient(config: FallbackClientConfig): FallbackClie
 
     verify: (provider, reference) => getClient(provider).verify(reference),
 
+    // Saved tokens are provider-specific, so charge them on the issuing provider.
+    chargeAuthorization: (provider, params) => getClient(provider).chargeAuthorization(params),
+
     refund: (provider, reference, options) => getClient(provider).refund(reference, options),
 
     // Payouts are single-provider on purpose - retrying a transfer across
