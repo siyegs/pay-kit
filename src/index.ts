@@ -25,6 +25,7 @@ export type {
   RefundStatus,
   ResolveAccountParams,
   ResolvedAccount,
+  SplitConfig,
   TransactionList,
   TransactionSummary,
   TransferParams,

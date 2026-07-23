@@ -43,6 +43,27 @@ describe("flutterwave: verify", () => {
   });
 });
 
+describe("flutterwave: split", () => {
+  it("builds a subaccounts array with a flat charge in major units", async () => {
+    const { fetch, calls } = mockFetch(() => ({
+      body: { status: "success", data: { link: "https://flw/checkout" } },
+    }));
+    const pay = createPayClient({ provider: "flutterwave", secretKey: SECRET, fetch });
+
+    await pay.initialize({
+      amount: 500000,
+      email: "a@b.com",
+      split: { subaccount: "RS_x", transactionCharge: 10000 },
+    });
+
+    const sent = jsonBody(calls[0]!.init);
+    const subs = sent.subaccounts as Array<Record<string, unknown>>;
+    expect(subs[0]!.id).toBe("RS_x");
+    expect(subs[0]!.transaction_charge_type).toBe("flat");
+    expect(subs[0]!.transaction_charge).toBe(100); // 10000 kobo -> 100 naira
+  });
+});
+
 describe("flutterwave: chargeAuthorization", () => {
   it("charges a saved card token and converts to major units", async () => {
     const { fetch, calls } = mockFetch(() => ({

@@ -102,6 +102,35 @@ describe("paystack: verify", () => {
   });
 });
 
+describe("paystack: split", () => {
+  it("passes subaccount, charge, and bearer on initialize", async () => {
+    const { fetch, calls } = mockFetch(() => ({
+      body: { status: true, data: { authorization_url: "u", reference: "r" } },
+    }));
+    const pay = createPayClient({ provider: "paystack", secretKey: SECRET, fetch });
+
+    await pay.initialize({
+      amount: 500000,
+      email: "a@b.com",
+      split: { subaccount: "ACCT_x", transactionCharge: 10000, bearer: "subaccount" },
+    });
+
+    const sent = jsonBody(calls[0]!.init);
+    expect(sent.subaccount).toBe("ACCT_x");
+    expect(sent.transaction_charge).toBe(10000);
+    expect(sent.bearer).toBe("subaccount");
+  });
+
+  it("omits split fields when no split is given", async () => {
+    const { fetch, calls } = mockFetch(() => ({
+      body: { status: true, data: { authorization_url: "u", reference: "r" } },
+    }));
+    const pay = createPayClient({ provider: "paystack", secretKey: SECRET, fetch });
+    await pay.initialize({ amount: 500000, email: "a@b.com" });
+    expect(jsonBody(calls[0]!.init).subaccount).toBeUndefined();
+  });
+});
+
 describe("paystack: chargeAuthorization", () => {
   it("charges a saved authorization code without a redirect", async () => {
     const { fetch, calls } = mockFetch(() => ({
