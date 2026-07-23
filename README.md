@@ -269,10 +269,21 @@ Built with the [Bun](https://bun.sh) toolchain.
 
 ```bash
 bun install          # install deps
-bun test             # run the test suite (bun:test)
+bun test             # run the test suite (bun:test, mocked fetch)
 bun run typecheck    # tsc --noEmit
 bun run build        # tsup -> dist (ESM + CJS + .d.ts)
 ```
+
+### Live-sandbox integration checks
+
+To validate against the **real** Paystack / Flutterwave test sandboxes (not mocks):
+
+```bash
+cp .env.example .env   # then add your TEST secret keys
+bun run integration
+```
+
+`bun run integration` reads keys from `.env` (gitignored - never commit them) and runs `listBanks`, `getBalances`, `listTransactions`, a test-mode `initialize`, and `verify` against each configured provider, printing PASS / WARN / FAIL per step. It only reads and creates a single test-mode charge by default; set `RESOLVE_ACCOUNT` + `RESOLVE_BANK` (and `RUN_TRANSFERS=1`) to also exercise account resolution and a test payout. With no keys present it skips cleanly.
 
 ## License
 
