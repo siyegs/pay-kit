@@ -3,6 +3,7 @@ import { PayKitError } from "../errors";
 import { providerRequest, safeEqual } from "../internal";
 import type {
   Bank,
+  ChargeAuthorizationParams,
   InitializeParams,
   InitializeResult,
   ListBanksOptions,
@@ -122,6 +123,7 @@ export function createPaystackProvider(ctx: ProviderContext): PaymentProvider {
 
       const data = (body.data ?? {}) as Record<string, unknown>;
       const customer = (data.customer ?? {}) as Record<string, unknown>;
+      const authorization = (data.authorization ?? {}) as Record<string, unknown>;
       return {
         reference: String(data.reference ?? reference),
         status: mapStatus(data.status),
@@ -130,6 +132,46 @@ export function createPaystackProvider(ctx: ProviderContext): PaymentProvider {
         paidAt: data.paid_at ? String(data.paid_at) : undefined,
         channel: data.channel ? String(data.channel) : undefined,
         customer: { email: customer.email ? String(customer.email) : undefined },
+        authorization: authorization.authorization_code
+          ? String(authorization.authorization_code)
+          : undefined,
+        raw: body,
+      };
+    },
+
+    async chargeAuthorization(params: ChargeAuthorizationParams): Promise<VerifyResult> {
+      const reference = params.reference ?? ctx.generateReference();
+      const body = await providerRequest(
+        ctx,
+        "paystack",
+        `${base}/transaction/charge_authorization`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            authorization_code: params.authorizationCode,
+            email: params.email,
+            amount: params.amount,
+            currency: params.currency ?? "NGN",
+            reference,
+            metadata: params.metadata,
+          }),
+        },
+      );
+
+      const data = (body.data ?? {}) as Record<string, unknown>;
+      const customer = (data.customer ?? {}) as Record<string, unknown>;
+      const authorization = (data.authorization ?? {}) as Record<string, unknown>;
+      return {
+        reference: String(data.reference ?? reference),
+        status: mapStatus(data.status),
+        amount: Number(data.amount ?? params.amount),
+        currency: String(data.currency ?? params.currency ?? ""),
+        paidAt: data.paid_at ? String(data.paid_at) : undefined,
+        channel: data.channel ? String(data.channel) : undefined,
+        customer: { email: customer.email ? String(customer.email) : params.email },
+        authorization: authorization.authorization_code
+          ? String(authorization.authorization_code)
+          : params.authorizationCode,
         raw: body,
       };
     },
