@@ -103,6 +103,21 @@ export function createFlutterwaveProvider(ctx: ProviderContext): PaymentProvider
           redirect_url: params.callbackUrl,
           customer: { email: params.email },
           meta: params.metadata,
+          ...(params.split
+            ? {
+                subaccounts: [
+                  {
+                    id: params.split.subaccount,
+                    ...(params.split.transactionCharge !== undefined
+                      ? {
+                          transaction_charge_type: "flat",
+                          transaction_charge: toMajor(params.split.transactionCharge),
+                        }
+                      : {}),
+                  },
+                ],
+              }
+            : {}),
         }),
       });
 
