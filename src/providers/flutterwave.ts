@@ -2,6 +2,7 @@ import { PayKitError } from "../errors";
 import { providerRequest, safeEqual } from "../internal";
 import type {
   Bank,
+  ChargeAuthorizationParams,
   InitializeParams,
   InitializeResult,
   ListBanksOptions,
@@ -123,6 +124,7 @@ export function createFlutterwaveProvider(ctx: ProviderContext): PaymentProvider
 
       const data = (body.data ?? {}) as Record<string, unknown>;
       const customer = (data.customer ?? {}) as Record<string, unknown>;
+      const card = (data.card ?? {}) as Record<string, unknown>;
       return {
         reference: String(data.tx_ref ?? reference),
         status: mapStatus(data.status),
@@ -131,6 +133,37 @@ export function createFlutterwaveProvider(ctx: ProviderContext): PaymentProvider
         paidAt: data.created_at ? String(data.created_at) : undefined,
         channel: data.payment_type ? String(data.payment_type) : undefined,
         customer: { email: customer.email ? String(customer.email) : undefined },
+        authorization: card.token ? String(card.token) : undefined,
+        raw: body,
+      };
+    },
+
+    async chargeAuthorization(params: ChargeAuthorizationParams): Promise<VerifyResult> {
+      const reference = params.reference ?? ctx.generateReference();
+      const body = await providerRequest(ctx, "flutterwave", `${base}/v3/tokenized-charges`, {
+        method: "POST",
+        body: JSON.stringify({
+          token: params.authorizationCode,
+          email: params.email,
+          amount: toMajor(params.amount),
+          currency: params.currency ?? "NGN",
+          tx_ref: reference,
+          meta: params.metadata,
+        }),
+      });
+
+      const data = (body.data ?? {}) as Record<string, unknown>;
+      const customer = (data.customer ?? {}) as Record<string, unknown>;
+      const card = (data.card ?? {}) as Record<string, unknown>;
+      return {
+        reference: String(data.tx_ref ?? reference),
+        status: mapStatus(data.status),
+        amount: data.amount !== undefined ? toSubunits(data.amount) : params.amount,
+        currency: String(data.currency ?? params.currency ?? ""),
+        paidAt: data.created_at ? String(data.created_at) : undefined,
+        channel: data.payment_type ? String(data.payment_type) : undefined,
+        customer: { email: customer.email ? String(customer.email) : params.email },
+        authorization: card.token ? String(card.token) : params.authorizationCode,
         raw: body,
       };
     },
