@@ -103,6 +103,25 @@ const event = pay.webhooks.construct(provider, rawBody, signature);
 - A charge started on one provider can only be verified/refunded on that provider, so `initialize` returns which `provider` handled it. **Persist `provider` alongside `reference`.**
 - Fallback is safest for *pre-charge* outages (provider unreachable). If a provider accepts the charge then the connection drops, retrying the other provider could double-charge - use idempotency at your order layer for that edge.
 
+### Returning customers (saved-card charge)
+
+After a first successful charge, `verify` hands you a reusable **`authorization`** token. Persist it against the customer and charge them again later with **no redirect** - the primitive behind subscriptions and one-tap repeat purchases.
+
+```ts
+const first = await pay.verify(reference);
+const token = first.authorization; // Paystack authorization_code / Flutterwave card token - store it
+
+// next billing cycle, or a repeat purchase:
+const charge = await pay.chargeAuthorization({
+  authorizationCode: token!,
+  email: "customer@example.com",
+  amount: 500000,
+});
+// -> { status: "success" | "failed" | "pending", amount, authorization, ... }
+```
+
+Tokens are provider-specific, so on a fallback client `chargeAuthorization(provider, params)` charges via the provider that issued the token.
+
 ### Balances & reconciliation
 
 Check your float before paying out, and pull transaction history to reconcile against your own records - both normalized to subunits across providers.
@@ -147,7 +166,8 @@ The mock is **stateful per client**: a charge you `initialize` is remembered, so
 ### Methods
 
 - `initialize(params) -> { reference, authorizationUrl, accessCode?, raw }`
-- `verify(reference) -> { reference, status, amount, currency, paidAt?, channel?, customer?, raw }`
+- `verify(reference) -> { reference, status, amount, currency, paidAt?, channel?, customer?, authorization?, raw }` - `authorization` is a reusable token for `chargeAuthorization`
+- `chargeAuthorization(params) -> VerifyResult` - charge a returning customer with a saved token, no redirect
 - `refund(reference, options?) -> { reference, status, amount?, raw }` - full refund, or partial with `options.amount` (subunits)
 - `transfer(params) -> { reference, status, amount?, transferId?, recipientCode?, raw }` - send a payout to a bank account
 - `verifyTransfer(transferId) -> { reference, status, amount?, transferId?, raw }` - check a payout's final state (payouts settle asynchronously)
@@ -208,6 +228,7 @@ Bank codes are **provider-specific**, so list and resolve against the same provi
 - [x] Bank list & account resolution
 - [x] Mock provider for offline development & tests
 - [x] Balances & transaction history (reconciliation)
+- [x] Saved-card / tokenized recurring charge
 - [ ] Plans & subscriptions
 - [ ] Framework adapters (NestJS, Hono, Next.js route handlers)
 
