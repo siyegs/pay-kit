@@ -102,6 +102,10 @@ export function createFallbackClient(config: FallbackClientConfig): FallbackClie
 
     listBanks: (provider, options) => getClient(provider).listBanks(options),
 
+    getBalances: (provider) => getClient(provider).getBalances(),
+
+    listTransactions: (provider, options) => getClient(provider).listTransactions(options),
+
     webhooks: {
       construct: (provider, rawBody, signature) =>
         getClient(provider).webhooks.construct(rawBody, signature),
