@@ -43,6 +43,39 @@ describe("flutterwave: verify", () => {
   });
 });
 
+describe("flutterwave: chargeAuthorization", () => {
+  it("charges a saved card token and converts to major units", async () => {
+    const { fetch, calls } = mockFetch(() => ({
+      body: {
+        status: "success",
+        data: {
+          tx_ref: "tx_2",
+          status: "successful",
+          amount: 5000,
+          currency: "NGN",
+          customer: { email: "a@b.com" },
+          card: { token: "flw-token-next" },
+        },
+      },
+    }));
+    const pay = createPayClient({ provider: "flutterwave", secretKey: SECRET, fetch });
+
+    const res = await pay.chargeAuthorization({
+      authorizationCode: "flw-token-abc",
+      email: "a@b.com",
+      amount: 500000,
+      reference: "tx_2",
+    });
+    expect(res.status).toBe("success");
+    expect(res.amount).toBe(500000); // 5000 naira -> kobo
+    expect(res.authorization).toBe("flw-token-next");
+    expect(calls[0]!.url).toContain("/v3/tokenized-charges");
+    const sent = jsonBody(calls[0]!.init);
+    expect(sent.token).toBe("flw-token-abc");
+    expect(sent.amount).toBe(5000); // 500000 kobo -> naira
+  });
+});
+
 describe("flutterwave: refund", () => {
   it("resolves the transaction id from the reference, then posts the refund", async () => {
     const { fetch, calls } = mockFetch((url) => {

@@ -102,6 +102,52 @@ describe("paystack: verify", () => {
   });
 });
 
+describe("paystack: chargeAuthorization", () => {
+  it("charges a saved authorization code without a redirect", async () => {
+    const { fetch, calls } = mockFetch(() => ({
+      body: {
+        status: true,
+        data: {
+          reference: "ref_2",
+          status: "success",
+          amount: 500000,
+          currency: "NGN",
+          customer: { email: "a@b.com" },
+          authorization: { authorization_code: "AUTH_next" },
+        },
+      },
+    }));
+    const pay = createPayClient({ provider: "paystack", secretKey: SECRET, fetch });
+
+    const res = await pay.chargeAuthorization({
+      authorizationCode: "AUTH_abc",
+      email: "a@b.com",
+      amount: 500000,
+      reference: "ref_2",
+    });
+    expect(res.status).toBe("success");
+    expect(res.amount).toBe(500000);
+    expect(res.authorization).toBe("AUTH_next");
+    expect(calls[0]!.url).toContain("/transaction/charge_authorization");
+    const sent = jsonBody(calls[0]!.init);
+    expect(sent.authorization_code).toBe("AUTH_abc");
+    expect(sent.amount).toBe(500000);
+  });
+});
+
+describe("paystack: verify exposes a reusable token", () => {
+  it("surfaces authorization_code from verify", async () => {
+    const { fetch } = mockFetch(() => ({
+      body: {
+        status: true,
+        data: { reference: "ref_1", status: "success", amount: 100, currency: "NGN", authorization: { authorization_code: "AUTH_xyz" } },
+      },
+    }));
+    const pay = createPayClient({ provider: "paystack", secretKey: SECRET, fetch });
+    expect((await pay.verify("ref_1")).authorization).toBe("AUTH_xyz");
+  });
+});
+
 describe("paystack: refund", () => {
   it("posts a full refund using the transaction reference", async () => {
     const { fetch, calls } = mockFetch(() => ({

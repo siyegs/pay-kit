@@ -45,6 +45,25 @@ describe("mock: charge lifecycle", () => {
     expect(init.reference).toBeTruthy();
     expect((await pay.verify(init.reference)).status).toBe("success");
   });
+
+  it("supports the saved-token recurring-charge loop", async () => {
+    const pay = createPayClient({ provider: "mock" });
+    await pay.initialize({ amount: 500000, email: "a@b.com", reference: "ref_1" });
+
+    // verify exposes a reusable token
+    const token = (await pay.verify("ref_1")).authorization;
+    expect(token).toBeTruthy();
+
+    // charge again with it, no redirect
+    const again = await pay.chargeAuthorization({
+      authorizationCode: token!,
+      email: "a@b.com",
+      amount: 250000,
+    });
+    expect(again.status).toBe("success");
+    expect(again.amount).toBe(250000);
+    expect(again.authorization).toBe(token);
+  });
 });
 
 describe("mock: refund & transfer", () => {
