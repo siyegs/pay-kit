@@ -101,6 +101,15 @@ export function createPaystackProvider(ctx: ProviderContext): PaymentProvider {
           reference,
           callback_url: params.callbackUrl,
           metadata: params.metadata,
+          ...(params.split
+            ? {
+                subaccount: params.split.subaccount,
+                ...(params.split.transactionCharge !== undefined
+                  ? { transaction_charge: params.split.transactionCharge }
+                  : {}),
+                ...(params.split.bearer ? { bearer: params.split.bearer } : {}),
+              }
+            : {}),
         }),
       });
 
