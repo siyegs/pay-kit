@@ -103,6 +103,24 @@ const event = pay.webhooks.construct(provider, rawBody, signature);
 - A charge started on one provider can only be verified/refunded on that provider, so `initialize` returns which `provider` handled it. **Persist `provider` alongside `reference`.**
 - Fallback is safest for *pre-charge* outages (provider unreachable). If a provider accepts the charge then the connection drops, retrying the other provider could double-charge - use idempotency at your order layer for that edge.
 
+### Marketplace splits
+
+Route part of a charge to a connected subaccount - the core primitive for marketplaces and creator payouts. Create the subaccount on your provider first, then reference it at charge time:
+
+```ts
+await pay.initialize({
+  amount: 500000,
+  email: "buyer@example.com",
+  split: {
+    subaccount: "ACCT_vendor123", // Paystack subaccount code / Flutterwave subaccount id
+    transactionCharge: 50000,      // optional flat platform fee, in subunits
+    bearer: "subaccount",          // who pays provider fees (Paystack)
+  },
+});
+```
+
+pay-kit maps this to Paystack's `subaccount`/`transaction_charge`/`bearer` and Flutterwave's `subaccounts` array, converting fees to each provider's unit.
+
 ### Returning customers (saved-card charge)
 
 After a first successful charge, `verify` hands you a reusable **`authorization`** token. Persist it against the customer and charge them again later with **no redirect** - the primitive behind subscriptions and one-tap repeat purchases.
@@ -229,6 +247,7 @@ Bank codes are **provider-specific**, so list and resolve against the same provi
 - [x] Mock provider for offline development & tests
 - [x] Balances & transaction history (reconciliation)
 - [x] Saved-card / tokenized recurring charge
+- [x] Marketplace splits (charge to subaccount)
 - [ ] Plans & subscriptions
 - [ ] Framework adapters (NestJS, Hono, Next.js route handlers)
 
