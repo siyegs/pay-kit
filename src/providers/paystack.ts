@@ -6,14 +6,17 @@ import type {
   InitializeParams,
   InitializeResult,
   ListBanksOptions,
+  ListTransactionsOptions,
   PaymentProvider,
   PaymentStatus,
+  ProviderBalance,
   ProviderContext,
   RefundOptions,
   RefundResult,
   RefundStatus,
   ResolveAccountParams,
   ResolvedAccount,
+  TransactionList,
   TransferParams,
   TransferResult,
   TransferStatus,
@@ -251,6 +254,50 @@ export function createPaystackProvider(ctx: ProviderContext): PaymentProvider {
         const bank = (entry ?? {}) as Record<string, unknown>;
         return { name: String(bank.name ?? ""), code: String(bank.code ?? "") };
       });
+    },
+
+    async getBalances(): Promise<ProviderBalance[]> {
+      const body = await providerRequest(ctx, "paystack", `${base}/balance`, { method: "GET" });
+      const list = Array.isArray(body.data) ? body.data : [];
+      return list.map((entry) => {
+        const bal = (entry ?? {}) as Record<string, unknown>;
+        // Paystack reports balance in subunits (kobo) already.
+        return {
+          currency: String(bal.currency ?? ""),
+          available: Number(bal.balance ?? 0),
+          raw: bal,
+        };
+      });
+    },
+
+    async listTransactions(options?: ListTransactionsOptions): Promise<TransactionList> {
+      const query = new URLSearchParams();
+      if (options?.perPage) query.set("perPage", String(options.perPage));
+      if (options?.page) query.set("page", String(options.page));
+      const suffix = query.toString() ? `?${query}` : "";
+      const body = await providerRequest(ctx, "paystack", `${base}/transaction${suffix}`, {
+        method: "GET",
+      });
+
+      const list = Array.isArray(body.data) ? body.data : [];
+      const meta = (body.meta ?? {}) as Record<string, unknown>;
+      return {
+        transactions: list.map((entry) => {
+          const tx = (entry ?? {}) as Record<string, unknown>;
+          const customer = (tx.customer ?? {}) as Record<string, unknown>;
+          return {
+            reference: String(tx.reference ?? ""),
+            status: mapStatus(tx.status),
+            amount: Number(tx.amount ?? 0),
+            currency: String(tx.currency ?? ""),
+            paidAt: tx.paid_at ? String(tx.paid_at) : undefined,
+            customer: { email: customer.email ? String(customer.email) : undefined },
+            raw: tx,
+          };
+        }),
+        page: meta.page !== undefined ? Number(meta.page) : options?.page,
+        raw: body,
+      };
     },
 
     constructWebhookEvent(rawBody: string, signature: string): WebhookEvent {
