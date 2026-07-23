@@ -89,6 +89,31 @@ describe("mock: refund & transfer", () => {
   });
 });
 
+describe("mock: balances & transactions", () => {
+  it("returns a balance", async () => {
+    const pay = createPayClient({ provider: "mock" });
+    const balances = await pay.getBalances();
+    expect(balances.length).toBeGreaterThan(0);
+    expect(balances[0]).toHaveProperty("available");
+  });
+
+  it("lists the charges it has seen", async () => {
+    const pay = createPayClient({ provider: "mock" });
+    await pay.initialize({ amount: 500000, email: "a@b.com", reference: "ref_1" });
+    await pay.initialize({ amount: 10000, email: "c@d.com", reference: "ref_2" });
+
+    const { transactions } = await pay.listTransactions();
+    expect(transactions).toHaveLength(2);
+    const refs = transactions.map((t) => t.reference).sort();
+    expect(refs).toEqual(["ref_1", "ref_2"]);
+  });
+
+  it("starts with no transactions", async () => {
+    const pay = createPayClient({ provider: "mock" });
+    expect((await pay.listTransactions()).transactions).toHaveLength(0);
+  });
+});
+
 describe("mock: banks & resolution", () => {
   it("lists mock banks and resolves an account", async () => {
     const pay = createPayClient({ provider: "mock" });

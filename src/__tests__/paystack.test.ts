@@ -287,6 +287,50 @@ describe("paystack: listBanks", () => {
   });
 });
 
+describe("paystack: getBalances", () => {
+  it("returns balances in subunits per currency", async () => {
+    const { fetch, calls } = mockFetch(() => ({
+      body: { status: true, data: [{ currency: "NGN", balance: 1500000 }] },
+    }));
+    const pay = createPayClient({ provider: "paystack", secretKey: SECRET, fetch });
+
+    const balances = await pay.getBalances();
+    expect(balances).toEqual([{ currency: "NGN", available: 1500000, raw: { currency: "NGN", balance: 1500000 } }]);
+    expect(calls[0]!.url).toContain("/balance");
+  });
+});
+
+describe("paystack: listTransactions", () => {
+  it("normalizes rows and passes pagination params", async () => {
+    const { fetch, calls } = mockFetch(() => ({
+      body: {
+        status: true,
+        data: [
+          {
+            reference: "ref_1",
+            status: "success",
+            amount: 500000,
+            currency: "NGN",
+            paid_at: "2026-01-01T00:00:00Z",
+            customer: { email: "a@b.com" },
+          },
+        ],
+        meta: { page: 2 },
+      },
+    }));
+    const pay = createPayClient({ provider: "paystack", secretKey: SECRET, fetch });
+
+    const res = await pay.listTransactions({ page: 2, perPage: 25 });
+    expect(res.page).toBe(2);
+    expect(res.transactions).toHaveLength(1);
+    expect(res.transactions[0]!.reference).toBe("ref_1");
+    expect(res.transactions[0]!.amount).toBe(500000);
+    expect(res.transactions[0]!.customer?.email).toBe("a@b.com");
+    expect(calls[0]!.url).toContain("perPage=25");
+    expect(calls[0]!.url).toContain("page=2");
+  });
+});
+
 describe("paystack: webhooks", () => {
   const raw = JSON.stringify({
     event: "charge.success",

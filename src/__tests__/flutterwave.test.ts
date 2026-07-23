@@ -181,6 +181,48 @@ describe("flutterwave: listBanks", () => {
   });
 });
 
+describe("flutterwave: getBalances", () => {
+  it("converts major-unit balances to subunits", async () => {
+    const { fetch, calls } = mockFetch(() => ({
+      body: { status: "success", data: [{ currency: "NGN", available_balance: 15000 }] },
+    }));
+    const pay = createPayClient({ provider: "flutterwave", secretKey: SECRET, fetch });
+
+    const balances = await pay.getBalances();
+    expect(balances[0]!.currency).toBe("NGN");
+    expect(balances[0]!.available).toBe(1500000); // 15000 naira -> kobo
+    expect(calls[0]!.url).toContain("/v3/balances");
+  });
+});
+
+describe("flutterwave: listTransactions", () => {
+  it("normalizes rows and converts amounts to subunits", async () => {
+    const { fetch, calls } = mockFetch(() => ({
+      body: {
+        status: "success",
+        data: [
+          {
+            tx_ref: "tx_1",
+            status: "successful",
+            amount: 5000,
+            currency: "NGN",
+            created_at: "2026-01-01T00:00:00Z",
+            customer: { email: "a@b.com" },
+          },
+        ],
+      },
+    }));
+    const pay = createPayClient({ provider: "flutterwave", secretKey: SECRET, fetch });
+
+    const res = await pay.listTransactions({ page: 1 });
+    expect(res.transactions[0]!.reference).toBe("tx_1");
+    expect(res.transactions[0]!.status).toBe("success");
+    expect(res.transactions[0]!.amount).toBe(500000); // 5000 naira -> kobo
+    expect(calls[0]!.url).toContain("/v3/transactions");
+    expect(calls[0]!.url).toContain("page=1");
+  });
+});
+
 describe("flutterwave: webhooks", () => {
   const raw = JSON.stringify({
     event: "charge.completed",
