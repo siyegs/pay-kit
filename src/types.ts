@@ -159,6 +159,40 @@ export interface ListBanksOptions {
   country?: string;
 }
 
+/** A provider wallet balance in one currency. */
+export interface ProviderBalance {
+  currency: string;
+  /** Available balance in subunits (kobo/cents). */
+  available: number;
+  raw: unknown;
+}
+
+export interface ListTransactionsOptions {
+  /** 1-based page number. */
+  page?: number;
+  /** Page size (Paystack `perPage`). */
+  perPage?: number;
+}
+
+/** A normalized transaction row from the provider's history. */
+export interface TransactionSummary {
+  reference: string;
+  status: PaymentStatus;
+  /** Amount in subunits (kobo/cents). */
+  amount: number;
+  currency: string;
+  paidAt?: string;
+  customer?: { email?: string };
+  raw: unknown;
+}
+
+export interface TransactionList {
+  transactions: TransactionSummary[];
+  /** The page this result represents, when reported. */
+  page?: number;
+  raw: unknown;
+}
+
 /** Internal context handed to each provider adapter. */
 export interface ProviderContext {
   secretKey: string;
@@ -177,6 +211,8 @@ export interface PaymentProvider {
   verifyTransfer(transferId: string): Promise<TransferResult>;
   resolveAccount(params: ResolveAccountParams): Promise<ResolvedAccount>;
   listBanks(options?: ListBanksOptions): Promise<Bank[]>;
+  getBalances(): Promise<ProviderBalance[]>;
+  listTransactions(options?: ListTransactionsOptions): Promise<TransactionList>;
   constructWebhookEvent(rawBody: string, signature: string): WebhookEvent;
 }
 
@@ -217,6 +253,10 @@ export interface PayClient {
   resolveAccount(params: ResolveAccountParams): Promise<ResolvedAccount>;
   /** List the provider's supported banks (for a payout bank picker). */
   listBanks(options?: ListBanksOptions): Promise<Bank[]>;
+  /** Fetch your provider wallet balance(s), one entry per currency. */
+  getBalances(): Promise<ProviderBalance[]>;
+  /** List transactions from the provider's history, for reconciliation. */
+  listTransactions(options?: ListTransactionsOptions): Promise<TransactionList>;
   webhooks: {
     /**
      * Verify a raw webhook body against its signature header and return a
@@ -278,6 +318,13 @@ export interface FallbackClient {
   ): Promise<ResolvedAccount>;
   /** List a specific provider's supported banks. */
   listBanks(provider: ProviderName, options?: ListBanksOptions): Promise<Bank[]>;
+  /** Fetch a specific provider's wallet balance(s). */
+  getBalances(provider: ProviderName): Promise<ProviderBalance[]>;
+  /** List a specific provider's transaction history. */
+  listTransactions(
+    provider: ProviderName,
+    options?: ListTransactionsOptions,
+  ): Promise<TransactionList>;
   webhooks: {
     construct(provider: ProviderName, rawBody: string, signature: string): WebhookEvent;
   };
