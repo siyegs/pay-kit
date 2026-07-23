@@ -57,7 +57,30 @@ export interface VerifyResult {
   paidAt?: string;
   channel?: string;
   customer?: { email?: string };
+  /**
+   * Reusable payment token for charging this customer again without a redirect.
+   * Paystack: the `authorization_code`. Flutterwave: the card `token`. Persist it
+   * and pass it to `chargeAuthorization`.
+   */
+  authorization?: string;
   raw: unknown;
+}
+
+export interface ChargeAuthorizationParams {
+  /**
+   * Saved payment token from a previous successful charge (see
+   * `VerifyResult.authorization`). Paystack: `authorization_code`.
+   * Flutterwave: card `token`.
+   */
+  authorizationCode: string;
+  /** Customer email (must match the one that produced the token). */
+  email: string;
+  /** Amount to charge in subunits (kobo/cents). */
+  amount: number;
+  currency?: Currency;
+  /** Optional custom reference. One is generated if omitted. */
+  reference?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface WebhookEvent {
@@ -206,6 +229,7 @@ export interface PaymentProvider {
   readonly name: ProviderName;
   initialize(params: InitializeParams): Promise<InitializeResult>;
   verify(reference: string): Promise<VerifyResult>;
+  chargeAuthorization(params: ChargeAuthorizationParams): Promise<VerifyResult>;
   refund(reference: string, options?: RefundOptions): Promise<RefundResult>;
   transfer(params: TransferParams): Promise<TransferResult>;
   verifyTransfer(transferId: string): Promise<TransferResult>;
@@ -240,6 +264,8 @@ export interface PayClient {
   readonly provider: ProviderName;
   initialize(params: InitializeParams): Promise<InitializeResult>;
   verify(reference: string): Promise<VerifyResult>;
+  /** Charge a returning customer with a saved token, no redirect. Server-side only. */
+  chargeAuthorization(params: ChargeAuthorizationParams): Promise<VerifyResult>;
   /** Refund a transaction in full, or partially with `options.amount` (subunits). */
   refund(reference: string, options?: RefundOptions): Promise<RefundResult>;
   /** Send a payout to a bank account. Server-side only. */
@@ -295,6 +321,11 @@ export interface FallbackClient {
    */
   initialize(params: InitializeParams): Promise<FallbackInitializeResult>;
   verify(provider: ProviderName, reference: string): Promise<VerifyResult>;
+  /** Charge a saved token via the provider that issued it (tokens are provider-specific). */
+  chargeAuthorization(
+    provider: ProviderName,
+    params: ChargeAuthorizationParams,
+  ): Promise<VerifyResult>;
   refund(
     provider: ProviderName,
     reference: string,
