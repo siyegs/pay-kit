@@ -5,14 +5,17 @@ import type {
   InitializeParams,
   InitializeResult,
   ListBanksOptions,
+  ListTransactionsOptions,
   PaymentProvider,
   PaymentStatus,
+  ProviderBalance,
   ProviderContext,
   RefundOptions,
   RefundResult,
   RefundStatus,
   ResolveAccountParams,
   ResolvedAccount,
+  TransactionList,
   TransferParams,
   TransferResult,
   TransferStatus,
@@ -250,6 +253,50 @@ export function createFlutterwaveProvider(ctx: ProviderContext): PaymentProvider
         const bank = (entry ?? {}) as Record<string, unknown>;
         return { name: String(bank.name ?? ""), code: String(bank.code ?? "") };
       });
+    },
+
+    async getBalances(): Promise<ProviderBalance[]> {
+      const body = await providerRequest(ctx, "flutterwave", `${base}/v3/balances`, {
+        method: "GET",
+      });
+      const list = Array.isArray(body.data) ? body.data : [];
+      return list.map((entry) => {
+        const bal = (entry ?? {}) as Record<string, unknown>;
+        // Flutterwave reports balances in major units - convert to subunits.
+        return {
+          currency: String(bal.currency ?? ""),
+          available: toSubunits(bal.available_balance),
+          raw: bal,
+        };
+      });
+    },
+
+    async listTransactions(options?: ListTransactionsOptions): Promise<TransactionList> {
+      const query = new URLSearchParams();
+      if (options?.page) query.set("page", String(options.page));
+      const suffix = query.toString() ? `?${query}` : "";
+      const body = await providerRequest(ctx, "flutterwave", `${base}/v3/transactions${suffix}`, {
+        method: "GET",
+      });
+
+      const list = Array.isArray(body.data) ? body.data : [];
+      return {
+        transactions: list.map((entry) => {
+          const tx = (entry ?? {}) as Record<string, unknown>;
+          const customer = (tx.customer ?? {}) as Record<string, unknown>;
+          return {
+            reference: String(tx.tx_ref ?? ""),
+            status: mapStatus(tx.status),
+            amount: toSubunits(tx.amount),
+            currency: String(tx.currency ?? ""),
+            paidAt: tx.created_at ? String(tx.created_at) : undefined,
+            customer: { email: customer.email ? String(customer.email) : undefined },
+            raw: tx,
+          };
+        }),
+        page: options?.page,
+        raw: body,
+      };
     },
 
     constructWebhookEvent(rawBody: string, signature: string): WebhookEvent {
