@@ -4,13 +4,16 @@ import type {
   InitializeParams,
   InitializeResult,
   ListBanksOptions,
+  ListTransactionsOptions,
   PaymentProvider,
   PaymentStatus,
+  ProviderBalance,
   ProviderContext,
   RefundOptions,
   RefundResult,
   ResolveAccountParams,
   ResolvedAccount,
+  TransactionList,
   TransferParams,
   TransferResult,
   VerifyResult,
@@ -133,6 +136,23 @@ export function createMockProvider(ctx: ProviderContext): PaymentProvider {
 
     async listBanks(_options?: ListBanksOptions): Promise<Bank[]> {
       return MOCK_BANKS.map((bank) => ({ ...bank }));
+    },
+
+    async getBalances(): Promise<ProviderBalance[]> {
+      return [{ currency: "NGN", available: 100_000_00, raw: { mock: true } }];
+    },
+
+    async listTransactions(_options?: ListTransactionsOptions): Promise<TransactionList> {
+      // Echo back the charges this mock client has initialized.
+      const transactions = [...charges.values()].map((charge) => ({
+        reference: charge.reference,
+        status: charge.status,
+        amount: charge.amount,
+        currency: charge.currency,
+        customer: { email: charge.email },
+        raw: { mock: true, ...charge },
+      }));
+      return { transactions, page: 1, raw: { mock: true } };
     },
 
     constructWebhookEvent(rawBody: string, signature: string): WebhookEvent {
