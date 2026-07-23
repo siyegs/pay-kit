@@ -103,6 +103,20 @@ const event = pay.webhooks.construct(provider, rawBody, signature);
 - A charge started on one provider can only be verified/refunded on that provider, so `initialize` returns which `provider` handled it. **Persist `provider` alongside `reference`.**
 - Fallback is safest for *pre-charge* outages (provider unreachable). If a provider accepts the charge then the connection drops, retrying the other provider could double-charge - use idempotency at your order layer for that edge.
 
+### Balances & reconciliation
+
+Check your float before paying out, and pull transaction history to reconcile against your own records - both normalized to subunits across providers.
+
+```ts
+const balances = await pay.getBalances();
+// [{ currency: "NGN", available: 1500000, raw }]  (available is in kobo/cents)
+
+const { transactions } = await pay.listTransactions({ page: 1, perPage: 50 });
+// [{ reference, status, amount, currency, paidAt?, customer?, raw }, ...]
+```
+
+On a fallback client both take the provider explicitly: `getBalances(provider)` and `listTransactions(provider, options?)`.
+
 ## Testing with the mock provider
 
 Use `provider: "mock"` to exercise a full payment flow with **no API keys and no network** - ideal for local development, CI, and unit tests. It implements the same interface as the real providers, so your code stays identical; only the config changes.
@@ -139,6 +153,8 @@ The mock is **stateful per client**: a charge you `initialize` is remembered, so
 - `verifyTransfer(transferId) -> { reference, status, amount?, transferId?, raw }` - check a payout's final state (payouts settle asynchronously)
 - `resolveAccount({ accountNumber, bankCode }) -> { accountNumber, accountName, bankCode?, raw }` - confirm an account holder's name before paying out
 - `listBanks(options?) -> { name, code }[]` - supported banks for a payout bank picker (`options.country`, ISO-2, defaults NG)
+- `getBalances() -> { currency, available, raw }[]` - your provider wallet balance(s) in subunits, one per currency
+- `listTransactions(options?) -> { transactions, page?, raw }` - paginated transaction history for reconciliation (`options.page`, `options.perPage`)
 - `webhooks.construct(rawBody, signature) -> { type, reference, status?, amount?, currency?, raw }`
 
 `status` is normalized to `"success" | "failed" | "pending" | "abandoned"`. Errors are thrown as `PayKitError` with `code` in `provider_error | network_error | invalid_signature | config_error | verification_failed`.
@@ -191,6 +207,7 @@ Bank codes are **provider-specific**, so list and resolve against the same provi
 - [x] Transfers / payouts
 - [x] Bank list & account resolution
 - [x] Mock provider for offline development & tests
+- [x] Balances & transaction history (reconciliation)
 - [ ] Plans & subscriptions
 - [ ] Framework adapters (NestJS, Hono, Next.js route handlers)
 
