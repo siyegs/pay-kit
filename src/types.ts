@@ -19,6 +19,23 @@ export type WebhookEventType =
   | "unknown"
   | (string & {});
 
+/**
+ * Route part of a charge to a connected subaccount (marketplace split). The
+ * subaccount must already exist on the provider (create it in their dashboard
+ * or API). Bank codes and subaccount ids are provider-specific.
+ */
+export interface SplitConfig {
+  /** Subaccount code/id that receives a share of this charge. */
+  subaccount: string;
+  /**
+   * Flat fee in subunits that the main (platform) account keeps off the top,
+   * when supported. Omit to use the subaccount's configured percentage.
+   */
+  transactionCharge?: number;
+  /** Who bears the provider's fees: the platform `account` or the `subaccount`. */
+  bearer?: "account" | "subaccount";
+}
+
 export interface InitializeParams {
   /**
    * Amount in the smallest currency unit (subunits) - kobo for NGN, cents for USD.
@@ -35,6 +52,8 @@ export interface InitializeParams {
   callbackUrl?: string;
   /** Arbitrary metadata echoed back on verify/webhook. */
   metadata?: Record<string, unknown>;
+  /** Split part of this charge to a subaccount (marketplace payout). */
+  split?: SplitConfig;
 }
 
 export interface InitializeResult {
