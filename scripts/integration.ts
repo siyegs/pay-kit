@@ -14,8 +14,12 @@
  * moves). To also exercise a test-mode payout, set RUN_TRANSFERS=1 and provide
  * RESOLVE_ACCOUNT + RESOLVE_BANK.
  */
-import { createPayClient } from "../src";
+import { createPayClient, PayKitError } from "../src";
 import type { PayClientConfig, ProviderName } from "../src";
+
+function isNetworkError(err: unknown): boolean {
+  return err instanceof PayKitError && err.code === "network_error";
+}
 
 interface Step {
   name: string;
@@ -24,7 +28,14 @@ interface Step {
   soft?: boolean;
 }
 
-const results: { provider: string; step: string; ok: boolean; soft: boolean; detail: string }[] = [];
+const results: {
+  provider: string;
+  step: string;
+  ok: boolean;
+  soft: boolean;
+  net: boolean;
+  detail: string;
+}[] = [];
 
 function summarize(out: unknown): string {
   if (Array.isArray(out)) return `(${out.length} items)`;
@@ -44,12 +55,15 @@ async function runSteps(label: string, steps: Step[]): Promise<void> {
   for (const s of steps) {
     try {
       const out = await s.run();
-      results.push({ provider: label, step: s.name, ok: true, soft: !!s.soft, detail: summarize(out) });
+      results.push({ provider: label, step: s.name, ok: true, soft: !!s.soft, net: false, detail: summarize(out) });
       console.log(`  PASS  ${s.name.padEnd(18)} ${summarize(out)}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      results.push({ provider: label, step: s.name, ok: false, soft: !!s.soft, detail: msg });
-      console.log(`  ${s.soft ? "WARN" : "FAIL"}  ${s.name.padEnd(18)} ${msg}`);
+      // Network errors are environmental (connectivity), not path/field bugs.
+      const net = isNetworkError(err);
+      const label2 = net ? "NET " : s.soft ? "WARN" : "FAIL";
+      results.push({ provider: label, step: s.name, ok: false, soft: !!s.soft, net, detail: msg });
+      console.log(`  ${label2}  ${s.name.padEnd(18)} ${msg}`);
     }
   }
 }
@@ -60,8 +74,11 @@ async function checkProvider(provider: ProviderName, cfg: PayClientConfig): Prom
   const email = "integration@pay-kit.dev";
   let reference = "";
 
-  const acct = process.env.RESOLVE_ACCOUNT;
-  const bank = process.env.RESOLVE_BANK;
+  // Bank codes are provider-specific, so allow per-provider overrides
+  // (e.g. Paystack test bank code 001, Flutterwave 044) with a shared fallback.
+  const up = provider.toUpperCase();
+  const acct = process.env[`${up}_RESOLVE_ACCOUNT`] ?? process.env.RESOLVE_ACCOUNT;
+  const bank = process.env[`${up}_RESOLVE_BANK`] ?? process.env.RESOLVE_BANK;
 
   const steps: Step[] = [
     { name: "listBanks", run: () => pay.listBanks({ country: "NG" }) },
@@ -128,10 +145,18 @@ if (flwKey) {
 }
 
 const passed = results.filter((r) => r.ok).length;
-const softFailed = results.filter((r) => !r.ok && r.soft).length;
-const hardFailed = results.filter((r) => !r.ok && !r.soft);
+const netErrors = results.filter((r) => !r.ok && r.net);
+const softFailed = results.filter((r) => !r.ok && r.soft && !r.net).length;
+// Only non-network, non-soft failures are real path/field mismatches.
+const hardFailed = results.filter((r) => !r.ok && !r.soft && !r.net);
 
-console.log(`\n${passed} passed, ${softFailed} soft-failed, ${hardFailed.length} failed`);
+console.log(
+  `\n${passed} passed, ${softFailed} soft-failed, ${netErrors.length} network-error, ${hardFailed.length} failed`,
+);
+if (netErrors.length) {
+  console.log("Network errors (environmental - connectivity to the provider, not a code bug; re-run):");
+  for (const n of netErrors) console.log(`  - ${n.provider} ${n.step}`);
+}
 if (hardFailed.length) {
   console.log("Failed steps (likely path/field mismatches to fix):");
   for (const f of hardFailed) console.log(`  - ${f.provider} ${f.step}: ${f.detail}`);
