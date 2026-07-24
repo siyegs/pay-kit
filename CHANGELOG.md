@@ -6,6 +6,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-07-24
+
+### Added
+- Project docs: `CHANGELOG.md`, `CONTRIBUTING.md`, `SECURITY.md`, and issue/PR
+  templates.
+- Runnable [`examples/`](./examples) (checkout, fallback, Express webhook).
+- **Automated npm publishing** via GitHub Releases (npm Trusted Publishing / OIDC
+  with provenance) - see `.github/workflows/publish.yml`.
+- Weekly live-sandbox integration workflow (`.github/workflows/integration.yml`).
+
+_No runtime code changes - documentation and release tooling only._
+
 ## [0.8.1] - 2026-07-24
 
 ### Fixed
@@ -79,7 +91,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and automatic provider fallback (`createFallbackClient`). Subunit-canonical
   amounts, `PayKitError` with machine-readable codes, ESM + CJS, Bun toolchain.
 
-[Unreleased]: https://github.com/siyegs/pay-kit/compare/v0.8.1...HEAD
+[Unreleased]: https://github.com/siyegs/pay-kit/compare/v0.8.2...HEAD
+[0.8.2]: https://github.com/siyegs/pay-kit/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/siyegs/pay-kit/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/siyegs/pay-kit/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/siyegs/pay-kit/compare/v0.6.0...v0.7.0

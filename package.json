@@ -1,6 +1,6 @@
 {
   "name": "@siyegs/pay-kit",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "description": "One typed SDK for African payment rails - unified Paystack & Flutterwave: charge, verify, refund, transfer/payout, resolve accounts, list banks, and verify webhooks, with provider fallback and a keyless mock provider for tests.",
   "type": "module",
   "sideEffects": false,
