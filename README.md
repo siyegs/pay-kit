@@ -276,6 +276,8 @@ bun run typecheck    # tsc --noEmit
 bun run build        # tsup -> dist (ESM + CJS + .d.ts)
 ```
 
+Runnable examples live in [`examples/`](./examples) (e.g. `bun run examples/checkout.ts`).
+
 ### Live-sandbox integration checks
 
 To validate against the **real** Paystack / Flutterwave test sandboxes (not mocks):
@@ -286,6 +288,19 @@ bun run integration
 ```
 
 `bun run integration` reads keys from `.env` (gitignored - never commit them) and runs `listBanks`, `getBalances`, `listTransactions`, a test-mode `initialize`, and `verify` against each configured provider, printing PASS / WARN / FAIL per step. It only reads and creates a single test-mode charge by default; set `RESOLVE_ACCOUNT` + `RESOLVE_BANK` (and `RUN_TRANSFERS=1`) to also exercise account resolution and a test payout. With no keys present it skips cleanly.
+
+### Releasing
+
+Publishing is automated: cut a **GitHub Release** whose tag matches `package.json`'s
+version (e.g. `v0.9.0`) and the [publish workflow](./.github/workflows/publish.yml)
+builds, verifies, and publishes to npm via Trusted Publishing (OIDC) with
+provenance - no `npm login` required. See [CONTRIBUTING.md](./CONTRIBUTING.md).
+
+## Contributing
+
+Issues and PRs welcome - see [CONTRIBUTING.md](./CONTRIBUTING.md),
+[CHANGELOG.md](./CHANGELOG.md), and [SECURITY.md](./SECURITY.md). Never paste live
+secret keys.
 
 ## License
 
