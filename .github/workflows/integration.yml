@@ -1,0 +1,41 @@
+name: Integration (live sandbox)
+
+# Runs the SDK against the real Paystack / Flutterwave TEST sandboxes so drift
+# from the providers' live APIs is caught over time - not just against mocks.
+#
+# One-time setup: add repo secrets (Settings -> Secrets and variables -> Actions):
+#   PAYSTACK_SECRET_KEY, FLUTTERWAVE_SECRET_KEY, FLUTTERWAVE_WEBHOOK_HASH (optional)
+# With no secrets the harness skips cleanly (exit 0), so this never blocks forks.
+#
+# Transfers are NOT exercised here (they need IP whitelisting + a transfer-enabled
+# merchant account, which a CI runner cannot satisfy).
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1" # every Monday 06:00 UTC
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run live-sandbox checks
+        run: bun run integration
+        env:
+          PAYSTACK_SECRET_KEY: ${{ secrets.PAYSTACK_SECRET_KEY }}
+          FLUTTERWAVE_SECRET_KEY: ${{ secrets.FLUTTERWAVE_SECRET_KEY }}
+          FLUTTERWAVE_WEBHOOK_HASH: ${{ secrets.FLUTTERWAVE_WEBHOOK_HASH }}
+          # Paystack test resolves need bank code 001; Flutterwave test account 0690000040/044.
+          PAYSTACK_RESOLVE_BANK: "001"
+          FLUTTERWAVE_RESOLVE_ACCOUNT: "0690000040"
+          FLUTTERWAVE_RESOLVE_BANK: "044"
