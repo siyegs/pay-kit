@@ -44,6 +44,7 @@ const { authorizationUrl, reference } = await pay.initialize({
   amount: 500000,
   email: "customer@example.com",
   currency: "NGN",
+  callbackUrl: "https://your-app.com/pay/callback", // required for Flutterwave, optional for Paystack
   metadata: { orderId: "order_123" },
 });
 // -> redirect the customer to `authorizationUrl`, persist `reference`
@@ -258,10 +259,11 @@ Bank codes are **provider-specific**, so list and resolve against the same provi
 
 pay-kit is **beta (pre-1.0)**. Here is exactly what is and is not verified:
 
-- **Verified:** TypeScript types compile, the package builds (ESM + CJS + `.d.ts`), and a full unit-test suite passes. The mock provider is exercised directly.
-- **Not yet verified:** the unit tests use **mocked** `fetch` responses, so real requests to Paystack and Flutterwave have not been exercised in CI. Endpoint paths and field mappings follow the providers' documented APIs but are not yet confirmed against the live sandboxes.
+- **Unit-tested:** TypeScript types compile, the package builds (ESM + CJS + `.d.ts`), and a full unit-test suite passes (mocked `fetch`). The mock provider is exercised directly.
+- **Live-sandbox verified:** Paystack `initialize`, `verify`, `listBanks`, `getBalances`, and `listTransactions` have been run against the real test sandbox. Flutterwave `listBanks`, `getBalances`, and `listTransactions` likewise; `initialize` was fixed after sandbox testing (Flutterwave requires `callbackUrl`).
+- **Not yet sandbox-verified:** the remaining methods (refund, transfer, verifyTransfer, resolveAccount, chargeAuthorization, splits, webhooks) are covered by unit tests but not yet exercised against live sandboxes.
 
-Live-sandbox integration tests (run with real test keys) are on the roadmap. Until then, validate the flows you depend on against your own provider sandbox, and report mismatches via [issues](https://github.com/siyegs/pay-kit/issues).
+Run the checks yourself with real test keys: `bun run integration` (see [Development](#development)). Please report any mismatch via [issues](https://github.com/siyegs/pay-kit/issues).
 
 ## Development
 
