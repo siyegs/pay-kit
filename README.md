@@ -260,8 +260,8 @@ Bank codes are **provider-specific**, so list and resolve against the same provi
 pay-kit is **beta (pre-1.0)**. Here is exactly what is and is not verified:
 
 - **Unit-tested:** TypeScript types compile, the package builds (ESM + CJS + `.d.ts`), and a full unit-test suite passes (mocked `fetch`). The mock provider is exercised directly.
-- **Live-sandbox verified:** Paystack `initialize`, `verify`, `listBanks`, `getBalances`, and `listTransactions` have been run against the real test sandbox. Flutterwave `listBanks`, `getBalances`, and `listTransactions` likewise; `initialize` was fixed after sandbox testing (Flutterwave requires `callbackUrl`).
-- **Not yet sandbox-verified:** the remaining methods (refund, transfer, verifyTransfer, resolveAccount, chargeAuthorization, splits, webhooks) are covered by unit tests but not yet exercised against live sandboxes.
+- **Live-sandbox verified (both providers):** `initialize`, `verify`, `resolveAccount`, `listBanks`, `getBalances`, and `listTransactions` have all been run successfully against the real Paystack and Flutterwave test sandboxes. `initialize` was fixed as a result (Flutterwave requires `callbackUrl`). The `transfer` request is also validated end to end - it reaches the provider and passes request validation (and Flutterwave IP whitelisting); completing an actual test payout additionally requires a transfer-enabled merchant account and a resolvable recipient.
+- **Not yet sandbox-verified:** `refund`, `verifyTransfer`, `chargeAuthorization`, and `splits` need a completed/paid transaction or configured subaccounts to exercise, so they are covered by unit tests but not yet run against live sandboxes.
 
 Run the checks yourself with real test keys: `bun run integration` (see [Development](#development)). Please report any mismatch via [issues](https://github.com/siyegs/pay-kit/issues).
 
