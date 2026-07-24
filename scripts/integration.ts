@@ -74,6 +74,7 @@ async function checkProvider(provider: ProviderName, cfg: PayClientConfig): Prom
           amount: 500000,
           email,
           reference: `pk_it_${provider}_${Date.now()}`,
+          callbackUrl: "https://example.com/pay-kit/callback",
         });
         reference = r.reference;
         return r;

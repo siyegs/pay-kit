@@ -40,7 +40,11 @@ describe("fallback: initialize", () => {
     });
     const pay = createFallbackClient({ providers: PROVIDERS, fetch });
 
-    const res = await pay.initialize({ amount: 500000, email: "a@b.com" });
+    const res = await pay.initialize({
+      amount: 500000,
+      email: "a@b.com",
+      callbackUrl: "https://example.com/callback",
+    });
     expect(res.provider).toBe("flutterwave");
     expect(res.authorizationUrl).toBe("https://flw/checkout");
     expect(urls.some((u) => u.includes("api.paystack.co"))).toBe(true);
@@ -54,7 +58,11 @@ describe("fallback: initialize", () => {
     });
     const pay = createFallbackClient({ providers: PROVIDERS, fetch });
 
-    const res = await pay.initialize({ amount: 1000, email: "a@b.com" });
+    const res = await pay.initialize({
+      amount: 1000,
+      email: "a@b.com",
+      callbackUrl: "https://example.com/callback",
+    });
     expect(res.provider).toBe("flutterwave");
   });
 

@@ -13,7 +13,12 @@ describe("flutterwave: initialize", () => {
     }));
     const pay = createPayClient({ provider: "flutterwave", secretKey: SECRET, fetch });
 
-    const res = await pay.initialize({ amount: 500000, email: "a@b.com", reference: "tx_1" });
+    const res = await pay.initialize({
+      amount: 500000,
+      email: "a@b.com",
+      reference: "tx_1",
+      callbackUrl: "https://example.com/callback",
+    });
 
     expect(res.authorizationUrl).toBe("https://checkout.flutterwave.com/xyz");
     expect(res.reference).toBe("tx_1");
@@ -23,6 +28,21 @@ describe("flutterwave: initialize", () => {
     expect(sent.amount).toBe(5000); // 500000 kobo -> 5000 naira
     expect(sent.tx_ref).toBe("tx_1");
     expect((sent.customer as Record<string, unknown>).email).toBe("a@b.com");
+  });
+});
+
+describe("flutterwave: initialize requires callbackUrl", () => {
+  it("throws a config_error when callbackUrl is missing", async () => {
+    const { fetch, calls } = mockFetch(() => ({ body: { status: "success", data: { link: "x" } } }));
+    const pay = createPayClient({ provider: "flutterwave", secretKey: SECRET, fetch });
+
+    await expect(pay.initialize({ amount: 1000, email: "a@b.com" })).rejects.toMatchObject({
+      name: "PayKitError",
+      code: "config_error",
+      provider: "flutterwave",
+    });
+    // It must fail before any network call.
+    expect(calls).toHaveLength(0);
   });
 });
 
@@ -53,6 +73,7 @@ describe("flutterwave: split", () => {
     await pay.initialize({
       amount: 500000,
       email: "a@b.com",
+      callbackUrl: "https://example.com/callback",
       split: { subaccount: "RS_x", transactionCharge: 10000 },
     });
 
