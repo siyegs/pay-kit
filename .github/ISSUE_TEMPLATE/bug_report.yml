@@ -1,0 +1,44 @@
+name: Bug report
+description: A method does not behave as documented, or does not match a provider's live behavior.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: "Thanks for the report. **Never paste live secret keys** - redact them."
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Provider
+      options:
+        - paystack
+        - flutterwave
+        - mock
+        - fallback client
+    validations:
+      required: true
+  - type: input
+    id: method
+    attributes:
+      label: Method
+      placeholder: "e.g. initialize, transfer, resolveAccount"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: pay-kit version
+      placeholder: "e.g. 0.8.1"
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: A short code snippet. Redact any keys and personal data.
+      render: ts

@@ -1,0 +1,21 @@
+name: Feature request
+description: Suggest a new capability, provider, or improvement.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed API or behavior
+      description: A rough sketch of the method/signature you have in mind.
+      render: ts
+  - type: input
+    id: provider
+    attributes:
+      label: Relevant provider(s)
+      placeholder: "e.g. Paystack, Flutterwave, a new provider"
