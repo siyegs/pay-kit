@@ -48,7 +48,11 @@ export interface InitializeParams {
   currency?: Currency;
   /** Optional custom reference. One is generated if omitted. */
   reference?: string;
-  /** URL the provider redirects to after payment. */
+  /**
+   * URL the provider redirects the customer to after payment. Optional for
+   * Paystack; **required for Flutterwave** (its hosted checkout needs a
+   * redirect_url, and pay-kit throws a `config_error` if it is missing).
+   */
   callbackUrl?: string;
   /** Arbitrary metadata echoed back on verify/webhook. */
   metadata?: Record<string, unknown>;

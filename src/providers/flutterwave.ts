@@ -93,6 +93,15 @@ export function createFlutterwaveProvider(ctx: ProviderContext): PaymentProvider
     name: "flutterwave",
 
     async initialize(params: InitializeParams): Promise<InitializeResult> {
+      // Flutterwave's hosted checkout requires a redirect URL - unlike Paystack,
+      // where it is optional. Surface that clearly instead of a cryptic 400.
+      if (!params.callbackUrl) {
+        throw new PayKitError(
+          "Flutterwave requires `callbackUrl` (the redirect_url the customer returns to after payment)",
+          { code: "config_error", provider: "flutterwave" },
+        );
+      }
+
       const reference = params.reference ?? ctx.generateReference();
       const body = await providerRequest(ctx, "flutterwave", `${base}/v3/payments`, {
         method: "POST",
