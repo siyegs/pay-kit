@@ -166,3 +166,19 @@ describe("mock: webhooks", () => {
     expect(() => pay.webhooks.construct(raw, "")).toThrow(PayKitError);
   });
 });
+
+describe("mock: createSubaccount", () => {
+  it("returns a mock subaccount id echoing the input", async () => {
+    const pay = createPayClient({ provider: "mock" });
+    const sub = await pay.createSubaccount({
+      businessName: "Vendor A",
+      bankCode: "058",
+      accountNumber: "0001112223",
+      percentageCharge: 15,
+    });
+    expect(sub.id).toMatch(/^mock_sub_/);
+    expect(sub.businessName).toBe("Vendor A");
+    expect(sub.accountNumber).toBe("0001112223");
+    expect(sub.bankCode).toBe("058");
+  });
+});

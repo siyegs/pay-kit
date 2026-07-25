@@ -436,6 +436,33 @@ describe("paystack: webhooks", () => {
   });
 });
 
+describe("paystack: createSubaccount", () => {
+  it("posts business/bank/account/percentage and returns the subaccount code", async () => {
+    const { fetch, calls } = mockFetch(() => ({
+      body: {
+        status: true,
+        data: { subaccount_code: "ACCT_new", business_name: "Vendor A", account_number: "0001112223" },
+      },
+    }));
+    const pay = createPayClient({ provider: "paystack", secretKey: SECRET, fetch });
+
+    const sub = await pay.createSubaccount({
+      businessName: "Vendor A",
+      bankCode: "058",
+      accountNumber: "0001112223",
+      percentageCharge: 20,
+    });
+
+    expect(sub.id).toBe("ACCT_new");
+    expect(calls[0]!.url).toContain("/subaccount");
+    const sent = jsonBody(calls[0]!.init);
+    expect(sent.business_name).toBe("Vendor A");
+    expect(sent.settlement_bank).toBe("058");
+    expect(sent.account_number).toBe("0001112223");
+    expect(sent.percentage_charge).toBe(20);
+  });
+});
+
 describe("config", () => {
   it("throws when secretKey is missing", () => {
     expect(() => createPayClient({ provider: "paystack", secretKey: "" })).toThrow(PayKitError);

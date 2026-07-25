@@ -343,3 +343,45 @@ describe("flutterwave: webhooks", () => {
     }
   });
 });
+
+describe("flutterwave: createSubaccount", () => {
+  it("posts bank/account/business and a percentage split, returns the subaccount id", async () => {
+    const { fetch, calls } = mockFetch(() => ({
+      body: {
+        status: "success",
+        data: { subaccount_id: "RS_123", business_name: "Vendor A", account_number: "0690000040" },
+      },
+    }));
+    const pay = createPayClient({ provider: "flutterwave", secretKey: SECRET, fetch });
+
+    const sub = await pay.createSubaccount({
+      businessName: "Vendor A",
+      bankCode: "044",
+      accountNumber: "0690000040",
+      percentageCharge: 20,
+      email: "vendor@a.com",
+    });
+
+    expect(sub.id).toBe("RS_123");
+    expect(calls[0]!.url).toContain("/v3/subaccounts");
+    const sent = jsonBody(calls[0]!.init);
+    expect(sent.account_bank).toBe("044");
+    expect(sent.account_number).toBe("0690000040");
+    expect(sent.business_email).toBe("vendor@a.com");
+    expect(sent.split_type).toBe("percentage");
+    expect(sent.split_value).toBe(0.2); // 20% -> 0.2 fraction
+  });
+
+  it("throws a config_error when email is missing", async () => {
+    const { fetch } = mockFetch(() => ({ body: { status: "success", data: {} } }));
+    const pay = createPayClient({ provider: "flutterwave", secretKey: SECRET, fetch });
+    await expect(
+      pay.createSubaccount({
+        businessName: "V",
+        bankCode: "044",
+        accountNumber: "0690000040",
+        percentageCharge: 20,
+      }),
+    ).rejects.toThrow(/email/);
+  });
+});
