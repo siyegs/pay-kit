@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-07-25
+
 ### Fixed
 - **Flutterwave webhooks: parse the flat legacy payload.** Flutterwave delivers
   two webhook shapes - the newer `{ event, data: {...} }` and a flat legacy
@@ -121,7 +123,8 @@ _No runtime code changes - documentation and release tooling only._
   and automatic provider fallback (`createFallbackClient`). Subunit-canonical
   amounts, `PayKitError` with machine-readable codes, ESM + CJS, Bun toolchain.
 
-[Unreleased]: https://github.com/siyegs/pay-kit/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/siyegs/pay-kit/compare/v0.9.1...HEAD
+[0.9.1]: https://github.com/siyegs/pay-kit/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/siyegs/pay-kit/compare/v0.8.2...v0.9.0
 [0.8.2]: https://github.com/siyegs/pay-kit/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/siyegs/pay-kit/compare/v0.8.0...v0.8.1
