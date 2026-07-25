@@ -111,14 +111,19 @@ async function confirm(provider: ProviderName): Promise<void> {
   pass("verify", `status=success amount=${v.amount} ${v.currency}`);
 
   // 2. chargeAuthorization — reuse the saved-card token from the paid charge.
+  // Use the email the provider actually recorded on the charge, not the one we
+  // sent: Flutterwave's sandbox rewrites the email, and the saved token is tied
+  // to the recorded email (Paystack keeps ours, so this is a safe default both ways).
   if (!v.authorization) {
     warn("chargeAuthorization", "no saved-card token on this charge (pay with a CARD to exercise it).");
   } else {
+    const chargeEmail = v.customer?.email ?? saved.email;
     try {
       const c = await pay.chargeAuthorization({
         authorizationCode: v.authorization,
-        email: saved.email,
+        email: chargeEmail,
         amount: 100000, // NGN 1,000.00
+        callbackUrl: "https://example.com/pay-kit/callback",
       });
       pass("chargeAuthorization", `status=${c.status} amount=${c.amount}`);
     } catch (err) {
