@@ -429,11 +429,16 @@ export function createFlutterwaveProvider(ctx: ProviderContext): PaymentProvider
         });
       }
 
-      const data = (event.data ?? {}) as Record<string, unknown>;
+      // Flutterwave sends two webhook shapes: the newer `{ event, data: {...} }`
+      // and a flat legacy payload (`txRef`/`amount`/`status` at the top level).
+      // Read from `data` when present, else fall back to the root, and accept
+      // both `tx_ref` and `txRef`.
+      const data = (event.data ?? event) as Record<string, unknown>;
       const status = mapStatus(data.status);
+      const reference = data.tx_ref ?? data.txRef;
       return {
         type: mapEventType(status),
-        reference: String(data.tx_ref ?? ""),
+        reference: reference !== undefined ? String(reference) : "",
         status,
         amount: data.amount !== undefined ? toSubunits(data.amount) : undefined,
         currency: data.currency ? String(data.currency) : undefined,

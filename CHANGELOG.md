@@ -6,6 +6,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- **Flutterwave webhooks: parse the flat legacy payload.** Flutterwave delivers
+  two webhook shapes - the newer `{ event, data: {...} }` and a flat legacy
+  payload (`txRef`/`amount`/`status` at the top level). The parser only handled
+  the nested shape, so real deliveries verified their signature but normalized to
+  an empty event. It now reads from `data` when present and falls back to the
+  flat root (accepting both `tx_ref` and `txRef`). Caught by verifying an actual
+  live delivery captured from the dashboard.
+
 ## [0.9.0] - 2026-07-25
 
 ### Added

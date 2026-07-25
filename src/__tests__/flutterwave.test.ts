@@ -322,6 +322,24 @@ describe("flutterwave: webhooks", () => {
     expect(event.amount).toBe(500000);
   });
 
+  it("normalizes the flat legacy payload Flutterwave actually delivers", () => {
+    // Real live webhook shape: flat top-level fields, `txRef`, no `data` wrapper.
+    const flat = JSON.stringify({
+      txRef: "pk_flat_1",
+      flwRef: "FLW-MOCK-abc",
+      amount: 5000,
+      status: "successful",
+      currency: "NGN",
+      "event.type": "CARD_TRANSACTION",
+    });
+    const pay = createPayClient({ provider: "flutterwave", secretKey: SECRET, webhookSecret: HASH });
+    const event = pay.webhooks.construct(flat, HASH);
+    expect(event.type).toBe("charge.success");
+    expect(event.reference).toBe("pk_flat_1");
+    expect(event.amount).toBe(500000); // 5000 naira -> kobo
+    expect(event.currency).toBe("NGN");
+  });
+
   it("rejects a wrong verif-hash", () => {
     const pay = createPayClient({ provider: "flutterwave", secretKey: SECRET, webhookSecret: HASH });
     try {
