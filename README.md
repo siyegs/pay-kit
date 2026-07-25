@@ -260,10 +260,12 @@ Bank codes are **provider-specific**, so list and resolve against the same provi
 pay-kit is **beta (pre-1.0)**. Here is exactly what is and is not verified:
 
 - **Unit-tested:** TypeScript types compile, the package builds (ESM + CJS + `.d.ts`), and a full unit-test suite passes (mocked `fetch`). The mock provider is exercised directly.
-- **Live-sandbox verified (both providers):** `initialize`, `verify`, `resolveAccount`, `listBanks`, `getBalances`, and `listTransactions` have all been run successfully against the real Paystack and Flutterwave test sandboxes. `initialize` was fixed as a result (Flutterwave requires `callbackUrl`). The `transfer` request is also validated end to end - it reaches the provider and passes request validation (and Flutterwave IP whitelisting); completing an actual test payout additionally requires a transfer-enabled merchant account and a resolvable recipient.
-- **Not yet sandbox-verified:** `refund`, `verifyTransfer`, `chargeAuthorization`, and `splits` need a completed/paid transaction or configured subaccounts to exercise, so they are covered by unit tests but not yet run against live sandboxes.
+- **Live-sandbox verified (both providers):** `initialize`, `verify`, `resolveAccount`, `listBanks`, `getBalances`, `listTransactions`, `refund`, and signature-verified webhooks have all been run successfully against the real Paystack and Flutterwave test sandboxes. `initialize` was fixed as a result (Flutterwave requires `callbackUrl`). Webhook checks confirm a valid signature is accepted, a tampered one is rejected, and the amount is normalized to subunits on both providers.
+- **Live-sandbox verified (Paystack):** `chargeAuthorization` (saved-card re-charge) runs successfully against Paystack. The Flutterwave call is request-correct and reaches the provider, but its test sandbox does not issue a reusable token for test cards, so it cannot be fully exercised there.
+- **Request-validated but account-gated:** `transfer` and `verifyTransfer` reach the provider and pass request validation (and Flutterwave IP whitelisting), but completing a real test payout requires a transfer-enabled merchant account and a resolvable recipient.
+- **Not yet sandbox-verified:** `splits` needs a configured subaccount to exercise, so it is covered by unit tests but not yet run against a live sandbox.
 
-Run the checks yourself with real test keys: `bun run integration` (see [Development](#development)). Please report any mismatch via [issues](https://github.com/siyegs/pay-kit/issues).
+Run the read/charge checks yourself with real test keys: `bun run integration`, and the paid-charge checks with `bun run scripts/verify-charge.ts init <provider>` then `... confirm <provider>` after paying the test charge (see [Development](#development)). Please report any mismatch via [issues](https://github.com/siyegs/pay-kit/issues).
 
 ## Development
 
