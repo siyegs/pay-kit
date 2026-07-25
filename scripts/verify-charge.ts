@@ -196,17 +196,52 @@ function describe(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
+/**
+ * Create a connected subaccount against the live sandbox. Needs a settlement
+ * bank + account: reuse the per-provider resolve vars from `.env`
+ * (`PAYSTACK_RESOLVE_ACCOUNT`/`_BANK`, `FLUTTERWAVE_RESOLVE_ACCOUNT`/`_BANK`).
+ */
+async function subaccount(provider: ProviderName): Promise<void> {
+  const up = provider.toUpperCase();
+  const accountNumber = process.env[`${up}_RESOLVE_ACCOUNT`] ?? process.env.RESOLVE_ACCOUNT;
+  const bankCode = process.env[`${up}_RESOLVE_BANK`] ?? process.env.RESOLVE_BANK;
+  console.log(`\n=== ${provider.toUpperCase()} — createSubaccount ===`);
+  if (!accountNumber || !bankCode) {
+    warn("createSubaccount", `set ${up}_RESOLVE_ACCOUNT and ${up}_RESOLVE_BANK in .env to test this.`);
+    return;
+  }
+
+  const pay = createPayClient(configFor(provider));
+  try {
+    const sub = await pay.createSubaccount({
+      businessName: "pay-kit test vendor",
+      bankCode,
+      accountNumber,
+      percentageCharge: 20,
+      email: "vendor@pay-kit.dev",
+    });
+    if (!sub.id) fail("createSubaccount", "no subaccount id returned");
+    pass("createSubaccount", `id=${sub.id}`);
+    console.log(`\nUse this id in a split charge to verify splits end to end:`);
+    console.log(`  split: { subaccount: "${sub.id}" }`);
+  } catch (err) {
+    warn("createSubaccount", describe(err));
+  }
+}
+
 const [command, providerArg] = process.argv.slice(2);
 const provider = providerArg as ProviderName;
 
-if (!command || !["init", "confirm", "webhook"].includes(command) || !provider) {
+if (!command || !["init", "confirm", "webhook", "subaccount"].includes(command) || !provider) {
   console.log("Usage:");
-  console.log("  bun run scripts/verify-charge.ts init    <paystack|flutterwave>");
-  console.log("  bun run scripts/verify-charge.ts confirm <paystack|flutterwave>");
-  console.log("  bun run scripts/verify-charge.ts webhook <paystack|flutterwave>");
+  console.log("  bun run scripts/verify-charge.ts init       <paystack|flutterwave>");
+  console.log("  bun run scripts/verify-charge.ts confirm    <paystack|flutterwave>");
+  console.log("  bun run scripts/verify-charge.ts webhook    <paystack|flutterwave>");
+  console.log("  bun run scripts/verify-charge.ts subaccount <paystack|flutterwave>");
   process.exit(1);
 }
 
 if (command === "init") await init(provider);
 else if (command === "confirm") await confirm(provider);
+else if (command === "subaccount") await subaccount(provider);
 else webhook(provider);
