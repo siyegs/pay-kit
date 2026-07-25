@@ -125,6 +125,23 @@ await pay.initialize({
 
 pay-kit maps this to Paystack's `subaccount`/`transaction_charge`/`bearer` and Flutterwave's `subaccounts` array, converting fees to each provider's unit.
 
+Create the subaccount programmatically instead of in the dashboard:
+
+```ts
+const sub = await pay.createSubaccount({
+  businessName: "Vendor A",
+  bankCode: "058",          // from listBanks()
+  accountNumber: "0001112223",
+  percentageCharge: 20,     // 0-100; the share that settles to this subaccount
+  email: "vendor@example.com", // required for Flutterwave
+});
+
+// use sub.id at charge time:
+await pay.initialize({ amount: 500000, email: "buyer@example.com", split: { subaccount: sub.id } });
+```
+
+`sub.id` is Paystack's `subaccount_code` / Flutterwave's `subaccount_id`. `percentageCharge` maps to Paystack's `percentage_charge` and Flutterwave's `percentage` split (its 0-1 `split_value`).
+
 ### Returning customers (saved-card charge)
 
 After a first successful charge, `verify` hands you a reusable **`authorization`** token. Persist it against the customer and charge them again later with **no redirect** - the primitive behind subscriptions and one-tap repeat purchases.
@@ -200,6 +217,7 @@ The mock is **stateful per client**: a charge you `initialize` is remembered, so
 - `listBanks(options?) -> { name, code }[]` - supported banks for a payout bank picker (`options.country`, ISO-2, defaults NG)
 - `getBalances() -> { currency, available, raw }[]` - your provider wallet balance(s) in subunits, one per currency
 - `listTransactions(options?) -> { transactions, page?, raw }` - paginated transaction history for reconciliation (`options.page`, `options.perPage`)
+- `createSubaccount({ businessName, bankCode, accountNumber, percentageCharge, email? }) -> { id, businessName?, accountNumber?, bankCode?, raw }` - create a connected subaccount for splits (Flutterwave requires `email`); pass `id` as `SplitConfig.subaccount`
 - `webhooks.construct(rawBody, signature) -> { type, reference, status?, amount?, currency?, raw }`
 
 `status` is normalized to `"success" | "failed" | "pending" | "abandoned"`. Errors are thrown as `PayKitError` with `code` in `provider_error | network_error | invalid_signature | config_error | verification_failed`.

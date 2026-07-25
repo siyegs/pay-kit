@@ -6,6 +6,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- **`createSubaccount(params)`** creates a connected subaccount for marketplace
+  splits and returns its provider id (Paystack `subaccount_code` / Flutterwave
+  `subaccount_id`) to pass as `SplitConfig.subaccount`. `percentageCharge`
+  (0-100) maps to Paystack's `percentage_charge` and Flutterwave's `percentage`
+  split; Flutterwave requires `email`.
+
 ### Fixed
 - **Flutterwave `chargeAuthorization` now requires `callbackUrl`.** Flutterwave's
   tokenized-charge endpoint rejects a re-charge without a `redirect_url`; the SDK
