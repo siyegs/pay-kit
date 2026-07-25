@@ -1,6 +1,6 @@
 # pay-kit
 
-> One typed SDK for African payment rails. Unified **Paystack** and **Flutterwave**: initialize a payment, verify it, and handle signature-verified webhooks - with the same API for both.
+> One typed TypeScript SDK unifying **Paystack** and **Flutterwave** - charge, verify, refund, pay out, split, and verify webhooks through a single API. Open-source, runs in your own backend, no middleman in your money path.
 
 [![CI](https://github.com/siyegs/pay-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/siyegs/pay-kit/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/badge/npm-%40siyegs%2Fpay--kit-cb3837)](https://www.npmjs.com/package/@siyegs/pay-kit)
@@ -8,9 +8,9 @@
 [![types](https://img.shields.io/badge/types-included-3178c6)](./src/types.ts)
 [![status](https://img.shields.io/badge/status-beta-orange)](#status)
 
-> **Status: beta (pre-1.0).** pay-kit is fully typed and covered by unit tests, but those tests run against **mocked** provider responses - the SDK has **not yet been verified end to end against the live Paystack/Flutterwave sandboxes**. Endpoint paths and request/response field shapes are implemented from the providers' API docs; edge cases may differ in practice. Test against your provider sandboxes before using in production, pin an exact version, and please [open an issue](https://github.com/siyegs/pay-kit/issues) if a call doesn't match real behavior. The API may change before 1.0.
+> **Status: beta (pre-1.0).** pay-kit is fully typed, unit-tested, and now **verified end to end against the live Paystack and Flutterwave sandboxes** for the core flows - initialize, verify, refund, saved-card charge, subaccount creation, and signature-verified webhooks. Live testing caught and fixed two real bugs. A few methods stay account-gated in test mode (payouts, `verifyTransfer`); the [Status](#status) section says exactly what is and isn't verified. Pin an exact version and test the flows you depend on - the API may still change before 1.0.
 
-Most serious African products integrate **both** Paystack and Flutterwave - for coverage, redundancy, and better rates. But their APIs, webhook signatures, error shapes, and currency units all differ, so teams re-write the same fragile glue every time. `pay-kit` gives you **one typed interface** over both.
+Most serious African products integrate **both** Paystack and Flutterwave - for coverage, redundancy, and better rates. But their APIs, webhook signatures, error shapes, and currency units all differ, so teams re-write the same fragile glue every time. `pay-kit` gives you **one typed interface** over both. And unlike a hosted payments gateway, it is a library you own: it runs in your backend and calls the providers directly with your own keys - no third party in your money path, no monthly bill.
 
 ## Why
 
@@ -18,6 +18,7 @@ Most serious African products integrate **both** Paystack and Flutterwave - for 
 - **Subunits everywhere.** Amounts are always in the smallest unit (kobo/cents), Stripe-style, to kill float-rounding bugs. pay-kit converts per provider.
 - **Signature-verified webhooks.** Paystack HMAC-SHA512 and Flutterwave `verif-hash`, both normalized to the same event shape.
 - **Typed end to end.** Full TypeScript types, one `PayKitError` with a machine-readable `code`.
+- **No middleman.** A library, not a hosted gateway - it calls Paystack/Flutterwave straight from your backend with your own keys. Nothing routes through a third-party service, so there's no added dependency, latency, monthly fee, or extra point of failure in your payment flow.
 - **Tiny + dependency-free.** Uses native `fetch` and `node:crypto`. ESM + CJS.
 
 ## Install
