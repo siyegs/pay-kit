@@ -3,6 +3,7 @@ import { providerRequest, safeEqual } from "../internal";
 import type {
   Bank,
   ChargeAuthorizationParams,
+  CreateSubaccountParams,
   InitializeParams,
   InitializeResult,
   ListBanksOptions,
@@ -16,6 +17,7 @@ import type {
   RefundStatus,
   ResolveAccountParams,
   ResolvedAccount,
+  Subaccount,
   TransactionList,
   TransferParams,
   TransferResult,
@@ -362,6 +364,41 @@ export function createFlutterwaveProvider(ctx: ProviderContext): PaymentProvider
           };
         }),
         page: options?.page,
+        raw: body,
+      };
+    },
+
+    async createSubaccount(params: CreateSubaccountParams): Promise<Subaccount> {
+      // Flutterwave requires a business_email on subaccount creation - surface it
+      // clearly instead of a cryptic 400.
+      if (!params.email) {
+        throw new PayKitError(
+          "Flutterwave `createSubaccount` requires `email` (the subaccount's business_email)",
+          { code: "config_error", provider: "flutterwave" },
+        );
+      }
+
+      const body = await providerRequest(ctx, "flutterwave", `${base}/v3/subaccounts`, {
+        method: "POST",
+        body: JSON.stringify({
+          account_bank: params.bankCode,
+          account_number: params.accountNumber,
+          business_name: params.businessName,
+          business_email: params.email,
+          country: (params.country ?? "NG").toUpperCase(),
+          split_type: "percentage",
+          // Flutterwave expresses a percentage split as a 0-1 fraction.
+          split_value: params.percentageCharge / 100,
+          meta: params.metadata,
+        }),
+      });
+
+      const data = (body.data ?? {}) as Record<string, unknown>;
+      return {
+        id: String(data.subaccount_id ?? ""),
+        businessName: data.business_name ? String(data.business_name) : params.businessName,
+        accountNumber: data.account_number ? String(data.account_number) : params.accountNumber,
+        bankCode: params.bankCode,
         raw: body,
       };
     },

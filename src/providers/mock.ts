@@ -2,6 +2,7 @@ import { PayKitError } from "../errors";
 import type {
   Bank,
   ChargeAuthorizationParams,
+  CreateSubaccountParams,
   InitializeParams,
   InitializeResult,
   ListBanksOptions,
@@ -14,6 +15,7 @@ import type {
   RefundResult,
   ResolveAccountParams,
   ResolvedAccount,
+  Subaccount,
   TransactionList,
   TransferParams,
   TransferResult,
@@ -180,6 +182,16 @@ export function createMockProvider(ctx: ProviderContext): PaymentProvider {
         raw: { mock: true, ...charge },
       }));
       return { transactions, page: 1, raw: { mock: true } };
+    },
+
+    async createSubaccount(params: CreateSubaccountParams): Promise<Subaccount> {
+      return {
+        id: `mock_sub_${ctx.generateReference()}`,
+        businessName: params.businessName,
+        accountNumber: params.accountNumber,
+        bankCode: params.bankCode,
+        raw: { mock: true, params },
+      };
     },
 
     constructWebhookEvent(rawBody: string, signature: string): WebhookEvent {

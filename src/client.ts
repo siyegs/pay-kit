@@ -71,6 +71,7 @@ export function createPayClient(config: PayClientConfig): PayClient {
     listBanks: (options) => provider.listBanks(options),
     getBalances: () => provider.getBalances(),
     listTransactions: (options) => provider.listTransactions(options),
+    createSubaccount: (params) => provider.createSubaccount(params),
     webhooks: {
       construct: (rawBody, signature) => provider.constructWebhookEvent(rawBody, signature),
     },

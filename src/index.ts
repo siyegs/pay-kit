@@ -5,6 +5,7 @@ export type { PayKitErrorCode, PayKitErrorOptions } from "./errors";
 export type {
   Bank,
   ChargeAuthorizationParams,
+  CreateSubaccountParams,
   Currency,
   FallbackClient,
   FallbackClientConfig,
@@ -26,6 +27,7 @@ export type {
   ResolveAccountParams,
   ResolvedAccount,
   SplitConfig,
+  Subaccount,
   TransactionList,
   TransactionSummary,
   TransferParams,

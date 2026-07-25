@@ -36,6 +36,43 @@ export interface SplitConfig {
   bearer?: "account" | "subaccount";
 }
 
+/**
+ * Create a connected subaccount to receive marketplace splits. The returned
+ * `id` is what you pass as `SplitConfig.subaccount`. Bank codes are
+ * provider-specific (list them with `listBanks`).
+ */
+export interface CreateSubaccountParams {
+  /** Business/display name for the subaccount. */
+  businessName: string;
+  /** Settlement bank code (from `listBanks`). */
+  bankCode: string;
+  /** Settlement account number. */
+  accountNumber: string;
+  /**
+   * Percentage of each transaction (0-100) that settles to this subaccount.
+   * Paystack maps it to the subaccount's `percentage_charge`; Flutterwave maps
+   * it to a `percentage` split (its `split_value`, expressed as a 0-1 fraction).
+   */
+  percentageCharge: number;
+  /** Business contact email. **Required for Flutterwave**, optional for Paystack. */
+  email?: string;
+  /** ISO-3166 alpha-2 country (Flutterwave); defaults to `NG`. */
+  country?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface Subaccount {
+  /**
+   * Provider subaccount identifier - pass this as `SplitConfig.subaccount`.
+   * Paystack: `subaccount_code`. Flutterwave: `subaccount_id`.
+   */
+  id: string;
+  businessName?: string;
+  accountNumber?: string;
+  bankCode?: string;
+  raw: unknown;
+}
+
 export interface InitializeParams {
   /**
    * Amount in the smallest currency unit (subunits) - kobo for NGN, cents for USD.
@@ -266,6 +303,7 @@ export interface PaymentProvider {
   listBanks(options?: ListBanksOptions): Promise<Bank[]>;
   getBalances(): Promise<ProviderBalance[]>;
   listTransactions(options?: ListTransactionsOptions): Promise<TransactionList>;
+  createSubaccount(params: CreateSubaccountParams): Promise<Subaccount>;
   constructWebhookEvent(rawBody: string, signature: string): WebhookEvent;
 }
 
@@ -312,6 +350,8 @@ export interface PayClient {
   getBalances(): Promise<ProviderBalance[]>;
   /** List transactions from the provider's history, for reconciliation. */
   listTransactions(options?: ListTransactionsOptions): Promise<TransactionList>;
+  /** Create a connected subaccount for marketplace splits. Returns its `id`. */
+  createSubaccount(params: CreateSubaccountParams): Promise<Subaccount>;
   webhooks: {
     /**
      * Verify a raw webhook body against its signature header and return a
@@ -385,6 +425,11 @@ export interface FallbackClient {
     provider: ProviderName,
     options?: ListTransactionsOptions,
   ): Promise<TransactionList>;
+  /** Create a subaccount on a specific provider (its id is provider-specific). */
+  createSubaccount(
+    provider: ProviderName,
+    params: CreateSubaccountParams,
+  ): Promise<Subaccount>;
   webhooks: {
     construct(provider: ProviderName, rawBody: string, signature: string): WebhookEvent;
   };

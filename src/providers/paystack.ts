@@ -4,6 +4,7 @@ import { providerRequest, safeEqual } from "../internal";
 import type {
   Bank,
   ChargeAuthorizationParams,
+  CreateSubaccountParams,
   InitializeParams,
   InitializeResult,
   ListBanksOptions,
@@ -17,6 +18,7 @@ import type {
   RefundStatus,
   ResolveAccountParams,
   ResolvedAccount,
+  Subaccount,
   TransactionList,
   TransferParams,
   TransferResult,
@@ -347,6 +349,29 @@ export function createPaystackProvider(ctx: ProviderContext): PaymentProvider {
           };
         }),
         page: meta.page !== undefined ? Number(meta.page) : options?.page,
+        raw: body,
+      };
+    },
+
+    async createSubaccount(params: CreateSubaccountParams): Promise<Subaccount> {
+      const body = await providerRequest(ctx, "paystack", `${base}/subaccount`, {
+        method: "POST",
+        body: JSON.stringify({
+          business_name: params.businessName,
+          settlement_bank: params.bankCode,
+          account_number: params.accountNumber,
+          percentage_charge: params.percentageCharge,
+          ...(params.email ? { primary_contact_email: params.email } : {}),
+          ...(params.metadata ? { metadata: params.metadata } : {}),
+        }),
+      });
+
+      const data = (body.data ?? {}) as Record<string, unknown>;
+      return {
+        id: String(data.subaccount_code ?? ""),
+        businessName: data.business_name ? String(data.business_name) : params.businessName,
+        accountNumber: String(data.account_number ?? params.accountNumber),
+        bankCode: params.bankCode,
         raw: body,
       };
     },

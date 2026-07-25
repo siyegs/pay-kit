@@ -109,6 +109,8 @@ export function createFallbackClient(config: FallbackClientConfig): FallbackClie
 
     listTransactions: (provider, options) => getClient(provider).listTransactions(options),
 
+    createSubaccount: (provider, params) => getClient(provider).createSubaccount(params),
+
     webhooks: {
       construct: (provider, rawBody, signature) =>
         getClient(provider).webhooks.construct(rawBody, signature),
