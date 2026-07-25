@@ -6,6 +6,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- **Flutterwave `chargeAuthorization` now requires `callbackUrl`.** Flutterwave's
+  tokenized-charge endpoint rejects a re-charge without a `redirect_url`; the SDK
+  previously omitted it, so every Flutterwave saved-card charge failed with a
+  cryptic "Please enter a valid redirect url". `ChargeAuthorizationParams` gains
+  an optional `callbackUrl` (required for Flutterwave, ignored by Paystack).
+  Caught by live-sandbox verification.
+
+### Added
+- `bun run scripts/verify-charge.ts` - a two-phase harness that verifies the
+  paid-charge methods (`refund`, `chargeAuthorization`) and webhook signatures
+  against the real sandboxes after you complete one test payment.
+
 ## [0.8.2] - 2026-07-24
 
 ### Added

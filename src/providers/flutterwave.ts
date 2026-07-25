@@ -163,6 +163,15 @@ export function createFlutterwaveProvider(ctx: ProviderContext): PaymentProvider
     },
 
     async chargeAuthorization(params: ChargeAuthorizationParams): Promise<VerifyResult> {
+      // Flutterwave's tokenized charge requires a redirect_url (it can trigger an
+      // auth step) - unlike Paystack. Surface it clearly instead of a cryptic 400.
+      if (!params.callbackUrl) {
+        throw new PayKitError(
+          "Flutterwave `chargeAuthorization` requires `callbackUrl` (the redirect_url for the re-charge)",
+          { code: "config_error", provider: "flutterwave" },
+        );
+      }
+
       const reference = params.reference ?? ctx.generateReference();
       const body = await providerRequest(ctx, "flutterwave", `${base}/v3/tokenized-charges`, {
         method: "POST",
@@ -171,6 +180,7 @@ export function createFlutterwaveProvider(ctx: ProviderContext): PaymentProvider
           email: params.email,
           amount: toMajor(params.amount),
           currency: params.currency ?? "NGN",
+          redirect_url: params.callbackUrl,
           tx_ref: reference,
           meta: params.metadata,
         }),

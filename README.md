@@ -138,9 +138,12 @@ const charge = await pay.chargeAuthorization({
   authorizationCode: token!,
   email: "customer@example.com",
   amount: 500000,
+  callbackUrl: "https://your-app.com/pay/callback", // required for Flutterwave, ignored by Paystack
 });
 // -> { status: "success" | "failed" | "pending", amount, authorization, ... }
 ```
+
+> Use the same `email` the original charge recorded (`verify().customer.email`) - Flutterwave ties the saved token to that email and rejects a mismatch.
 
 Tokens are provider-specific, so on a fallback client `chargeAuthorization(provider, params)` charges via the provider that issued the token.
 
@@ -189,7 +192,7 @@ The mock is **stateful per client**: a charge you `initialize` is remembered, so
 
 - `initialize(params) -> { reference, authorizationUrl, accessCode?, raw }`
 - `verify(reference) -> { reference, status, amount, currency, paidAt?, channel?, customer?, authorization?, raw }` - `authorization` is a reusable token for `chargeAuthorization`
-- `chargeAuthorization(params) -> VerifyResult` - charge a returning customer with a saved token, no redirect
+- `chargeAuthorization(params) -> VerifyResult` - charge a returning customer with a saved token (Flutterwave requires `callbackUrl`; Paystack needs no redirect)
 - `refund(reference, options?) -> { reference, status, amount?, raw }` - full refund, or partial with `options.amount` (subunits)
 - `transfer(params) -> { reference, status, amount?, transferId?, recipientCode?, raw }` - send a payout to a bank account
 - `verifyTransfer(transferId) -> { reference, status, amount?, transferId?, raw }` - check a payout's final state (payouts settle asynchronously)
@@ -260,8 +263,7 @@ Bank codes are **provider-specific**, so list and resolve against the same provi
 pay-kit is **beta (pre-1.0)**. Here is exactly what is and is not verified:
 
 - **Unit-tested:** TypeScript types compile, the package builds (ESM + CJS + `.d.ts`), and a full unit-test suite passes (mocked `fetch`). The mock provider is exercised directly.
-- **Live-sandbox verified (both providers):** `initialize`, `verify`, `resolveAccount`, `listBanks`, `getBalances`, `listTransactions`, `refund`, and signature-verified webhooks have all been run successfully against the real Paystack and Flutterwave test sandboxes. `initialize` was fixed as a result (Flutterwave requires `callbackUrl`). Webhook checks confirm a valid signature is accepted, a tampered one is rejected, and the amount is normalized to subunits on both providers.
-- **Live-sandbox verified (Paystack only):** `chargeAuthorization` (saved-card re-charge) runs end to end against Paystack. On Flutterwave the request is accepted by the endpoint (it returns a business error, not a malformed-request error), but the full re-charge could not be completed because the test sandbox did not yield a reusable card token - so the Flutterwave round trip is **unconfirmed**, not proven working. Treat Flutterwave `chargeAuthorization` as unit-tested only until confirmed against a live card.
+- **Live-sandbox verified (both providers):** `initialize`, `verify`, `resolveAccount`, `listBanks`, `getBalances`, `listTransactions`, `refund`, `chargeAuthorization`, and signature-verified webhooks have all been run successfully against the real Paystack and Flutterwave test sandboxes. Two bugs were caught and fixed this way: `initialize` and `chargeAuthorization` both require a redirect URL on Flutterwave (`callbackUrl`), which the SDK previously omitted. Webhook checks confirm a valid signature is accepted, a tampered one is rejected, and the amount is normalized to subunits on both providers.
 - **Request-validated but account-gated:** `transfer` and `verifyTransfer` reach the provider and pass request validation (and Flutterwave IP whitelisting), but completing a real test payout requires a transfer-enabled merchant account and a resolvable recipient.
 - **Not yet sandbox-verified:** `splits` needs a configured subaccount to exercise, so it is covered by unit tests but not yet run against a live sandbox.
 

@@ -103,6 +103,12 @@ export interface ChargeAuthorizationParams {
   currency?: Currency;
   /** Optional custom reference. One is generated if omitted. */
   reference?: string;
+  /**
+   * Redirect URL for the re-charge. **Required for Flutterwave** - its tokenized
+   * charge can trigger an authentication step and rejects the call without it.
+   * Ignored by Paystack (saved-card charges there need no redirect).
+   */
+  callbackUrl?: string;
   metadata?: Record<string, unknown>;
 }
 

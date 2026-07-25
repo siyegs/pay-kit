@@ -107,6 +107,7 @@ describe("flutterwave: chargeAuthorization", () => {
       email: "a@b.com",
       amount: 500000,
       reference: "tx_2",
+      callbackUrl: "https://example.com/cb",
     });
     expect(res.status).toBe("success");
     expect(res.amount).toBe(500000); // 5000 naira -> kobo
@@ -115,6 +116,15 @@ describe("flutterwave: chargeAuthorization", () => {
     const sent = jsonBody(calls[0]!.init);
     expect(sent.token).toBe("flw-token-abc");
     expect(sent.amount).toBe(5000); // 500000 kobo -> naira
+    expect(sent.redirect_url).toBe("https://example.com/cb");
+  });
+
+  it("throws a config_error when callbackUrl is missing", async () => {
+    const { fetch } = mockFetch(() => ({ body: { status: "success", data: {} } }));
+    const pay = createPayClient({ provider: "flutterwave", secretKey: SECRET, fetch });
+    await expect(
+      pay.chargeAuthorization({ authorizationCode: "flw-token-abc", email: "a@b.com", amount: 500000 }),
+    ).rejects.toThrow(/callbackUrl/);
   });
 });
 
