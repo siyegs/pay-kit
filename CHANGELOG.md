@@ -6,12 +6,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-07-25
+
 ### Added
 - **`createSubaccount(params)`** creates a connected subaccount for marketplace
   splits and returns its provider id (Paystack `subaccount_code` / Flutterwave
   `subaccount_id`) to pass as `SplitConfig.subaccount`. `percentageCharge`
   (0-100) maps to Paystack's `percentage_charge` and Flutterwave's `percentage`
   split; Flutterwave requires `email`.
+- `bun run scripts/verify-charge.ts` - a two-phase harness that verifies the
+  paid-charge methods (`refund`, `chargeAuthorization`), webhook signatures, and
+  subaccount creation against the real sandboxes after you complete one test
+  payment.
 
 ### Fixed
 - **Flutterwave `chargeAuthorization` now requires `callbackUrl`.** Flutterwave's
@@ -20,11 +26,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   cryptic "Please enter a valid redirect url". `ChargeAuthorizationParams` gains
   an optional `callbackUrl` (required for Flutterwave, ignored by Paystack).
   Caught by live-sandbox verification.
-
-### Added
-- `bun run scripts/verify-charge.ts` - a two-phase harness that verifies the
-  paid-charge methods (`refund`, `chargeAuthorization`) and webhook signatures
-  against the real sandboxes after you complete one test payment.
 
 ## [0.8.2] - 2026-07-24
 
@@ -111,7 +112,8 @@ _No runtime code changes - documentation and release tooling only._
   and automatic provider fallback (`createFallbackClient`). Subunit-canonical
   amounts, `PayKitError` with machine-readable codes, ESM + CJS, Bun toolchain.
 
-[Unreleased]: https://github.com/siyegs/pay-kit/compare/v0.8.2...HEAD
+[Unreleased]: https://github.com/siyegs/pay-kit/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/siyegs/pay-kit/compare/v0.8.2...v0.9.0
 [0.8.2]: https://github.com/siyegs/pay-kit/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/siyegs/pay-kit/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/siyegs/pay-kit/compare/v0.7.0...v0.8.0
