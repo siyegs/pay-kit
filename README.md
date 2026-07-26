@@ -202,6 +202,42 @@ const { transactions } = await pay.listTransactions({ page: 1, perPage: 50 });
 
 On a fallback client both take the provider explicitly: `getBalances(provider)` and `listTransactions(provider, options?)`.
 
+## NestJS
+
+Register a configured `PayClient` in the DI container with `@siyegs/pay-kit/nestjs` and inject it anywhere. (`@nestjs/common` is an optional peer dependency - only needed if you use this import.)
+
+```ts
+// app.module.ts
+import { PayKitModule } from "@siyegs/pay-kit/nestjs";
+
+@Module({
+  imports: [
+    PayKitModule.forRoot({
+      provider: "paystack",
+      secretKey: process.env.PAYSTACK_SECRET_KEY!,
+      isGlobal: true, // inject it anywhere without re-importing the module
+    }),
+  ],
+})
+export class AppModule {}
+```
+
+```ts
+// payments.service.ts
+import { InjectPayClient } from "@siyegs/pay-kit/nestjs";
+import type { PayClient } from "@siyegs/pay-kit";
+
+@Injectable()
+export class PaymentsService {
+  constructor(@InjectPayClient() private readonly pay: PayClient) {}
+  checkout() {
+    return this.pay.initialize({ amount: 500000, email: "a@b.com" });
+  }
+}
+```
+
+Reading config from `ConfigService`? Use `PayKitModule.forRootAsync({ inject: [ConfigService], useFactory: (c) => ({ provider: "paystack", secretKey: c.getOrThrow("PAYSTACK_SECRET_KEY") }) })`. See [`examples/nestjs.ts`](./examples/nestjs.ts).
+
 ## Testing with the mock provider
 
 Use `provider: "mock"` to exercise a full payment flow with **no API keys and no network** - ideal for local development, CI, and unit tests. It implements the same interface as the real providers, so your code stays identical; only the config changes.
@@ -301,8 +337,8 @@ Bank codes are **provider-specific**, so list and resolve against the same provi
 - [x] Saved-card / tokenized recurring charge
 - [x] Marketplace splits (charge to subaccount)
 - [x] Web / Next.js webhook route adapter (`@siyegs/pay-kit/next`, works in any Fetch-API runtime)
+- [x] NestJS module adapter (`@siyegs/pay-kit/nestjs`)
 - [ ] Plans & subscriptions
-- [ ] NestJS module adapter
 
 ## Status
 

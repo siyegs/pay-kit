@@ -7,6 +7,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- **`@siyegs/pay-kit/nestjs` module.** `PayKitModule.forRoot(config)` /
+  `forRootAsync({ inject, useFactory })` registers a configured `PayClient` in
+  the NestJS DI container; inject it with `@InjectPayClient()`. `@nestjs/common`
+  is an optional peer dependency (only pulled in if you use this import), and the
+  module is decorator-free so pay-kit needs no `experimentalDecorators` build.
 - **`@siyegs/pay-kit/next` webhook adapter.** `webhookRoute(client, { onEvent })`
   returns a Web-standard `(request) => Response` handler you can export as `POST`
   from a Next.js App Router route (or use in Remix, Hono, Cloudflare Workers,
