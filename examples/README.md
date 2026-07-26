@@ -15,5 +15,8 @@ Runnable snippets for pay-kit.
 - **`webhook-express.ts`** - verifying a webhook signature in an Express handler
   (illustrative; needs `express` and a real secret key).
 
+- **`webhook-next.ts`** - a Next.js App Router webhook route using the
+  `@siyegs/pay-kit/next` adapter (also works in Remix, Hono, Workers, Deno, Bun).
+
 Swap `provider: "mock"` for `"paystack"` or `"flutterwave"` (with a real secret
 key) to run any of these against a live provider.

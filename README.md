@@ -81,6 +81,29 @@ app.post("/webhooks/pay", express.raw({ type: "*/*" }), (req, res) => {
 - **Paystack**: signature header is `x-paystack-signature`; verification uses your `secretKey`.
 - **Flutterwave**: header is `verif-hash`; pass your "Secret hash" as `webhookSecret` when creating the client.
 
+### Next.js / Web `Request` handler
+
+On any Fetch-API runtime (Next.js App Router, Remix, Hono, SvelteKit, Cloudflare Workers, Deno, Bun), import the helper from `@siyegs/pay-kit/next`. It reads the raw body for you (the usual signature footgun), verifies, dispatches, and returns the right status.
+
+```ts
+// app/api/webhooks/pay/route.ts
+import { createPayClient } from "@siyegs/pay-kit";
+import { webhookRoute } from "@siyegs/pay-kit/next";
+
+const pay = createPayClient({ provider: "paystack", secretKey: process.env.PAYSTACK_SECRET_KEY! });
+
+export const POST = webhookRoute(pay, {
+  onEvent: async (event) => {
+    if (event.type === "charge.success") {
+      // fulfil the order, idempotently keyed on event.reference
+    }
+  },
+});
+// 401 bad signature · 400 malformed · 500 if onEvent throws (provider retries) · 200 ok
+```
+
+Prefer to verify yourself? `constructWebhookFromRequest(pay, request)` returns the normalized event (or throws `invalid_signature`). See [`examples/webhook-next.ts`](./examples/webhook-next.ts).
+
 ## Provider fallback
 
 Try one provider, automatically fall through to the next when it is unreachable - so a Paystack outage doesn't stop you taking money.
@@ -277,8 +300,9 @@ Bank codes are **provider-specific**, so list and resolve against the same provi
 - [x] Balances & transaction history (reconciliation)
 - [x] Saved-card / tokenized recurring charge
 - [x] Marketplace splits (charge to subaccount)
+- [x] Web / Next.js webhook route adapter (`@siyegs/pay-kit/next`, works in any Fetch-API runtime)
 - [ ] Plans & subscriptions
-- [ ] Framework adapters (NestJS, Hono, Next.js route handlers)
+- [ ] NestJS module adapter
 
 ## Status
 

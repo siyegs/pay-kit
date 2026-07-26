@@ -7,6 +7,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- **`@siyegs/pay-kit/next` webhook adapter.** `webhookRoute(client, { onEvent })`
+  returns a Web-standard `(request) => Response` handler you can export as `POST`
+  from a Next.js App Router route (or use in Remix, Hono, Cloudflare Workers,
+  Deno, Bun). It reads the raw body (the signature footgun), verifies, dispatches
+  the normalized event, and replies 401/400/500/200. `constructWebhookFromRequest`
+  is the lower-level helper for custom handling.
 - **Per-request timeouts.** Every provider call is now bounded by a timeout
   (default 30s, configurable via `timeout` on `createPayClient` /
   `createFallbackClient`, `0` disables) so a hung connection can't block the
