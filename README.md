@@ -21,6 +21,22 @@ Most serious African products integrate **both** Paystack and Flutterwave - for 
 - **No middleman.** A library, not a hosted gateway - it calls Paystack/Flutterwave straight from your backend with your own keys. Nothing routes through a third-party service, so there's no added dependency, latency, monthly fee, or extra point of failure in your payment flow.
 - **Tiny + dependency-free.** Uses native `fetch` and `node:crypto`. ESM + CJS.
 
+### Library vs hosted gateway
+
+pay-kit is a library you install, not a payments gateway you route through. If you were weighing the two:
+
+| | **pay-kit** (library) | **Hosted aggregator gateway** |
+| --- | --- | --- |
+| Where it runs | Your backend | Their servers |
+| Money path | You → Paystack/Flutterwave, directly | You → their gateway → provider |
+| Keys | Your own provider keys | Often their account / re-KYC |
+| Cost | Free (MIT), just provider fees | Provider fees + the gateway's cut / monthly fee |
+| Extra failure point | None | Their uptime is now in your path |
+| Data | Stays in your stack | Transits a third party |
+| Lock-in | It's your code; fork it | Migrating off means re-integrating |
+
+Use a hosted gateway if you want an all-in-one dashboard and don't mind a middleman. Use pay-kit if you want to keep providers direct, keys yours, and the money path short - with the multi-provider ergonomics done for you.
+
 ## Install
 
 ```bash
