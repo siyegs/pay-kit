@@ -1,6 +1,7 @@
 export type PayKitErrorCode =
   | "provider_error"
   | "network_error"
+  | "timeout"
   | "invalid_signature"
   | "config_error"
   | "verification_failed";
@@ -14,13 +15,13 @@ export interface PayKitErrorOptions {
 }
 
 /**
- * Whether an error is worth retrying on another provider: network failures and
- * outage-like HTTP statuses (5xx, 429). Client errors (4xx) are not retryable -
- * they would fail the same way everywhere.
+ * Whether an error is worth retrying on another provider: network failures,
+ * request timeouts, and outage-like HTTP statuses (5xx, 429). Client errors
+ * (4xx) are not retryable - they would fail the same way everywhere.
  */
 export function isRetryableError(err: unknown): boolean {
   if (!(err instanceof PayKitError)) return false;
-  if (err.code === "network_error") return true;
+  if (err.code === "network_error" || err.code === "timeout") return true;
   if (typeof err.statusCode === "number") {
     return err.statusCode >= 500 || err.statusCode === 429;
   }

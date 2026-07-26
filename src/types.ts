@@ -289,6 +289,8 @@ export interface ProviderContext {
   baseUrl?: string;
   fetch: typeof fetch;
   generateReference: () => string;
+  /** Per-request timeout in milliseconds. `0`/undefined disables it. */
+  timeoutMs?: number;
 }
 
 export interface PaymentProvider {
@@ -325,6 +327,13 @@ export interface PayClientConfig {
   fetch?: typeof fetch;
   /** Override reference generation. */
   generateReference?: () => string;
+  /**
+   * Per-request timeout in milliseconds. A hung provider connection is aborted
+   * after this long and surfaces as `PayKitError` with code `"timeout"` (which
+   * a fallback client treats as retryable). Defaults to `30000`; pass `0` to
+   * disable. Ignored by `provider: "mock"` (no network).
+   */
+  timeout?: number;
 }
 
 export interface PayClient {
@@ -367,6 +376,8 @@ export interface FallbackProviderConfig {
   secretKey: string;
   webhookSecret?: string;
   baseUrl?: string;
+  /** Per-provider request timeout in ms (overrides the client-level `timeout`). */
+  timeout?: number;
 }
 
 export interface FallbackClientConfig {
@@ -374,6 +385,12 @@ export interface FallbackClientConfig {
   providers: FallbackProviderConfig[];
   fetch?: typeof fetch;
   generateReference?: () => string;
+  /**
+   * Default per-request timeout in ms applied to every provider (each entry may
+   * override it). A timeout is retryable, so it triggers the next provider.
+   * Defaults to `30000`; pass `0` to disable.
+   */
+  timeout?: number;
 }
 
 /** `initialize` result plus the provider that actually handled the charge. */

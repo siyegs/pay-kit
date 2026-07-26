@@ -14,46 +14,65 @@ export async function providerRequest(
   url: string,
   init: RequestInit,
 ): Promise<Record<string, unknown>> {
-  let res: Response;
+  // Bound the call with an AbortController so a hung connection can't block the
+  // caller forever (and so a fallback client can move on). `timeoutMs <= 0`
+  // disables it.
+  const timeoutMs = ctx.timeoutMs ?? 0;
+  const controller = timeoutMs > 0 ? new AbortController() : undefined;
+  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
+
   try {
-    res = await ctx.fetch(url, {
-      ...init,
-      headers: {
-        Authorization: `Bearer ${ctx.secretKey}`,
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        ...(init.headers ?? {}),
-      },
-    });
-  } catch (err) {
-    throw new PayKitError(`Network error calling ${provider}`, {
-      code: "network_error",
-      provider,
-      cause: err,
-    });
-  }
+    let res: Response;
+    try {
+      res = await ctx.fetch(url, {
+        ...init,
+        ...(controller ? { signal: controller.signal } : {}),
+        headers: {
+          Authorization: `Bearer ${ctx.secretKey}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          ...(init.headers ?? {}),
+        },
+      });
+    } catch (err) {
+      if (controller?.signal.aborted) {
+        throw new PayKitError(`${provider} request timed out after ${timeoutMs}ms`, {
+          code: "timeout",
+          provider,
+          cause: err,
+        });
+      }
+      throw new PayKitError(`Network error calling ${provider}`, {
+        code: "network_error",
+        provider,
+        cause: err,
+      });
+    }
 
-  let body: Record<string, unknown> = {};
-  try {
-    body = (await res.json()) as Record<string, unknown>;
-  } catch {
-    body = {};
-  }
+    let body: Record<string, unknown> = {};
+    try {
+      body = (await res.json()) as Record<string, unknown>;
+    } catch {
+      body = {};
+    }
 
-  if (!res.ok || body.status === false || body.status === "error") {
-    const message =
-      typeof body.message === "string"
-        ? body.message
-        : `${provider} request failed (${res.status})`;
-    throw new PayKitError(message, {
-      code: "provider_error",
-      provider,
-      statusCode: res.status,
-      raw: body,
-    });
-  }
+    if (!res.ok || body.status === false || body.status === "error") {
+      const message =
+        typeof body.message === "string"
+          ? body.message
+          : `${provider} request failed (${res.status})`;
+      throw new PayKitError(message, {
+        code: "provider_error",
+        provider,
+        statusCode: res.status,
+        raw: body,
+      });
+    }
 
-  return body;
+    return body;
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
 }
 
 /** Constant-time comparison of two hex/string signatures. */

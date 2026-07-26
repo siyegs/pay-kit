@@ -49,6 +49,7 @@ export function createFallbackClient(config: FallbackClientConfig): FallbackClie
         baseUrl: entry.baseUrl,
         fetch: config.fetch,
         generateReference: config.generateReference,
+        timeout: entry.timeout ?? config.timeout,
       }),
     );
     order.push(entry.provider);

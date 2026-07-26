@@ -10,6 +10,9 @@ import type {
   ProviderContext,
 } from "./types";
 
+/** Default per-request timeout - long enough for any healthy provider call. */
+const DEFAULT_TIMEOUT_MS = 30_000;
+
 function resolveProvider(config: PayClientConfig, ctx: ProviderContext): PaymentProvider {
   switch (config.provider) {
     case "paystack":
@@ -55,6 +58,7 @@ export function createPayClient(config: PayClientConfig): PayClient {
     fetch: fetchImpl,
     generateReference:
       config.generateReference ?? (() => `pk_${randomUUID().replace(/-/g, "")}`),
+    timeoutMs: config.timeout ?? DEFAULT_TIMEOUT_MS,
   };
 
   const provider = resolveProvider(config, ctx);
