@@ -149,15 +149,59 @@ export interface ChargeAuthorizationParams {
   metadata?: Record<string, unknown>;
 }
 
-export interface WebhookEvent {
-  type: WebhookEventType;
+/** Fields shared by every normalized webhook event. */
+export interface WebhookEventFields {
+  /** Transaction or transfer reference the event concerns. */
   reference: string;
+  /** Normalized status, when the event carries one. */
   status?: PaymentStatus;
   /** Amount in subunits (kobo/cents), when present on the event. */
   amount?: number;
   currency?: string;
+  /** Raw provider payload, for anything pay-kit does not normalize. */
   raw: unknown;
 }
+
+/** A successful charge / payment. */
+export interface ChargeSuccessEvent extends WebhookEventFields {
+  type: "charge.success";
+  status: "success";
+}
+/** A failed charge / payment. */
+export interface ChargeFailedEvent extends WebhookEventFields {
+  type: "charge.failed";
+  status: "failed";
+}
+/** A payout that settled successfully. */
+export interface TransferSuccessEvent extends WebhookEventFields {
+  type: "transfer.success";
+  status: "success";
+}
+/** A payout that failed. */
+export interface TransferFailedEvent extends WebhookEventFields {
+  type: "transfer.failed";
+  status: "failed";
+}
+/**
+ * Any other event. Paystack forwards its event name verbatim (e.g.
+ * `refund.processed`, `subscription.create`, `transfer.reversed`), so `type` is
+ * an open string here - match on it directly.
+ */
+export interface OtherWebhookEvent extends WebhookEventFields {
+  type: WebhookEventType;
+}
+
+/**
+ * A normalized webhook event. Discriminate on `type` - or use the exported type
+ * guards (`isChargeSuccess`, ...) for precise narrowing - to handle a specific
+ * event. Every variant shares `reference`, `amount`, `currency`, and `raw`.
+ */
+export type WebhookEvent =
+  | ChargeSuccessEvent
+  | ChargeFailedEvent
+  | TransferSuccessEvent
+  | TransferFailedEvent
+  | OtherWebhookEvent;
 
 /** Normalized refund status across providers. */
 export type RefundStatus = "pending" | "processed" | "failed";

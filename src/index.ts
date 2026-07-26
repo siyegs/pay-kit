@@ -2,9 +2,17 @@ export { createPayClient } from "./client";
 export { createFallbackClient } from "./fallback";
 export { PayKitError, isRetryableError } from "./errors";
 export type { PayKitErrorCode, PayKitErrorOptions } from "./errors";
+export {
+  isChargeSuccess,
+  isChargeFailed,
+  isTransferSuccess,
+  isTransferFailed,
+} from "./webhooks";
 export type {
   Bank,
   ChargeAuthorizationParams,
+  ChargeFailedEvent,
+  ChargeSuccessEvent,
   CreateSubaccountParams,
   Currency,
   FallbackClient,
@@ -15,6 +23,7 @@ export type {
   InitializeResult,
   ListBanksOptions,
   ListTransactionsOptions,
+  OtherWebhookEvent,
   PayClient,
   PayClientConfig,
   PaymentProvider,
@@ -30,11 +39,14 @@ export type {
   Subaccount,
   TransactionList,
   TransactionSummary,
+  TransferFailedEvent,
   TransferParams,
   TransferRecipient,
   TransferResult,
   TransferStatus,
+  TransferSuccessEvent,
   VerifyResult,
   WebhookEvent,
+  WebhookEventFields,
   WebhookEventType,
 } from "./types";
