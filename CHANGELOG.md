@@ -6,6 +6,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- **Per-request timeouts.** Every provider call is now bounded by a timeout
+  (default 30s, configurable via `timeout` on `createPayClient` /
+  `createFallbackClient`, `0` disables) so a hung connection can't block the
+  caller forever. A timed-out request throws `PayKitError` with code `"timeout"`,
+  which a fallback client treats as an outage and retries on the next provider.
+
 ## [0.9.1] - 2026-07-25
 
 ### Fixed

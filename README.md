@@ -205,6 +205,7 @@ The mock is **stateful per client**: a charge you `initialize` is remembered, so
 | `baseUrl`          | `string`                      | override API base (tests/proxies)                  |
 | `fetch`            | `typeof fetch`                | inject a fetch impl                                |
 | `generateReference`| `() => string`                | customize reference generation                     |
+| `timeout`          | `number`                      | per-request timeout in ms (default `30000`; `0` disables) |
 
 ### Methods
 
@@ -221,7 +222,9 @@ The mock is **stateful per client**: a charge you `initialize` is remembered, so
 - `createSubaccount({ businessName, bankCode, accountNumber, percentageCharge, email? }) -> { id, businessName?, accountNumber?, bankCode?, raw }` - create a connected subaccount for splits (Flutterwave requires `email`); pass `id` as `SplitConfig.subaccount`
 - `webhooks.construct(rawBody, signature) -> { type, reference, status?, amount?, currency?, raw }`
 
-`status` is normalized to `"success" | "failed" | "pending" | "abandoned"`. Errors are thrown as `PayKitError` with `code` in `provider_error | network_error | invalid_signature | config_error | verification_failed`.
+`status` is normalized to `"success" | "failed" | "pending" | "abandoned"`. Errors are thrown as `PayKitError` with `code` in `provider_error | network_error | timeout | invalid_signature | config_error | verification_failed`.
+
+Every request is bounded by a timeout (default 30s) so a hung provider connection can't block your handler forever; on a fallback client a `timeout` counts as an outage and moves on to the next provider.
 
 ### Transfers / payouts
 
