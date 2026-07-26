@@ -25,6 +25,11 @@
       "types": "./dist/next.d.ts",
       "import": "./dist/next.js",
       "require": "./dist/next.cjs"
+    },
+    "./nestjs": {
+      "types": "./dist/nestjs.d.ts",
+      "import": "./dist/nestjs.js",
+      "require": "./dist/nestjs.cjs"
     }
   },
   "files": [
@@ -67,8 +72,19 @@
     "access": "public"
   },
   "devDependencies": {
+    "@nestjs/common": "^11.1.28",
     "@types/bun": "^1.1.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
     "tsup": "^8.1.0",
     "typescript": "^5.4.5"
+  },
+  "peerDependencies": {
+    "@nestjs/common": ">=9"
+  },
+  "peerDependenciesMeta": {
+    "@nestjs/common": {
+      "optional": true
+    }
   }
 }
