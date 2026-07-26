@@ -97,6 +97,24 @@ app.post("/webhooks/pay", express.raw({ type: "*/*" }), (req, res) => {
 - **Paystack**: signature header is `x-paystack-signature`; verification uses your `secretKey`.
 - **Flutterwave**: header is `verif-hash`; pass your "Secret hash" as `webhookSecret` when creating the client.
 
+### Typed events
+
+`WebhookEvent` is a discriminated union. The exported type guards narrow it precisely - use them rather than a bare `event.type ===` check, because Paystack forwards its own event names (`refund.processed`, `subscription.create`, ...) through the open catch-all variant:
+
+```ts
+import { isChargeSuccess, isTransferFailed } from "@siyegs/pay-kit";
+
+const event = pay.webhooks.construct(rawBody, signature);
+if (isChargeSuccess(event)) {
+  event.status; // narrowed to "success"
+  fulfilOrder(event.reference, event.amount); // amount in subunits
+} else if (isTransferFailed(event)) {
+  retryPayout(event.reference);
+}
+```
+
+Guards: `isChargeSuccess`, `isChargeFailed`, `isTransferSuccess`, `isTransferFailed`. The matching event types (`ChargeSuccessEvent`, ...) are exported too. Any other provider event arrives as the open `OtherWebhookEvent` - switch on `event.type` for those.
+
 ### Next.js / Web `Request` handler
 
 On any Fetch-API runtime (Next.js App Router, Remix, Hono, SvelteKit, Cloudflare Workers, Deno, Bun), import the helper from `@siyegs/pay-kit/next`. It reads the raw body for you (the usual signature footgun), verifies, dispatches, and returns the right status.
@@ -352,6 +370,7 @@ Bank codes are **provider-specific**, so list and resolve against the same provi
 - [x] Balances & transaction history (reconciliation)
 - [x] Saved-card / tokenized recurring charge
 - [x] Marketplace splits (charge to subaccount)
+- [x] Typed webhook events (discriminated union + type guards)
 - [x] Web / Next.js webhook route adapter (`@siyegs/pay-kit/next`, works in any Fetch-API runtime)
 - [x] NestJS module adapter (`@siyegs/pay-kit/nestjs`)
 - [ ] Plans & subscriptions

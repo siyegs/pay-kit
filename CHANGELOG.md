@@ -7,6 +7,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- **Typed webhook events.** `WebhookEvent` is now a discriminated union
+  (`ChargeSuccessEvent`, `ChargeFailedEvent`, `TransferSuccessEvent`,
+  `TransferFailedEvent`, and an open `OtherWebhookEvent` for Paystack's
+  pass-through event names), with exported type guards `isChargeSuccess`,
+  `isChargeFailed`, `isTransferSuccess`, `isTransferFailed` for precise
+  narrowing. Non-breaking: every variant keeps the previous
+  `reference`/`status`/`amount`/`currency`/`raw` fields.
 - **`@siyegs/pay-kit/nestjs` module.** `PayKitModule.forRoot(config)` /
   `forRootAsync({ inject, useFactory })` registers a configured `PayClient` in
   the NestJS DI container; inject it with `@InjectPayClient()`. `@nestjs/common`
