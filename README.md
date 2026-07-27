@@ -315,9 +315,39 @@ The mock is **stateful per client**: a charge you `initialize` is remembered, so
 - `createSubaccount({ businessName, bankCode, accountNumber, percentageCharge, email? }) -> { id, businessName?, accountNumber?, bankCode?, raw }` - create a connected subaccount for splits (Flutterwave requires `email`); pass `id` as `SplitConfig.subaccount`
 - `webhooks.construct(rawBody, signature) -> { type, reference, status?, amount?, currency?, raw }`
 
-`status` is normalized to `"success" | "failed" | "pending" | "abandoned"`. Errors are thrown as `PayKitError` with `code` in `provider_error | network_error | timeout | invalid_signature | config_error | verification_failed`.
+`status` is normalized to `"success" | "failed" | "pending" | "abandoned"`.
 
 Every request is bounded by a timeout (default 30s) so a hung provider connection can't block your handler forever; on a fallback client a `timeout` counts as an outage and moves on to the next provider.
+
+### Error handling
+
+Every failure is thrown as a single `PayKitError` with a machine-readable `code`, so you can branch without string-matching messages:
+
+```ts
+import { PayKitError } from "@siyegs/pay-kit";
+
+try {
+  await pay.initialize({ amount: 500000, email: "a@b.com" });
+} catch (err) {
+  if (err instanceof PayKitError) {
+    err.code;       // one of the codes below
+    err.provider;   // "paystack" | "flutterwave" | ... (when provider-specific)
+    err.statusCode; // upstream HTTP status, when there was one
+    err.raw;        // the raw provider payload, for logging
+  }
+}
+```
+
+| `code` | When |
+| --- | --- |
+| `provider_error` | The provider rejected the request (4xx/5xx, or an app-level `status:false`). `statusCode` and `raw` are set. |
+| `network_error` | The request never completed (DNS, connection reset, offline). Retryable. |
+| `timeout` | The request exceeded the configured `timeout`. Retryable - a fallback client moves to the next provider. |
+| `invalid_signature` | A webhook signature did not match. Reject the webhook. |
+| `config_error` | Missing/invalid config (e.g. no `secretKey`, or a Flutterwave call without `callbackUrl`/`webhookSecret`). |
+| `verification_failed` | A payment could not be verified as successful. |
+
+`isRetryableError(err)` returns `true` for `network_error`, `timeout`, and outage-like HTTP statuses (5xx/429) - the same rule the fallback client uses.
 
 ### Transfers / payouts
 
