@@ -18,6 +18,9 @@ Runnable snippets for pay-kit.
 - **`webhook-next.ts`** - a Next.js App Router webhook route using the
   `@siyegs/pay-kit/next` adapter (also works in Remix, Hono, Workers, Deno, Bun).
 
+- **`webhook-hono.ts`** - the same `@siyegs/pay-kit/next` adapter running in Hono,
+  showing it is runtime-agnostic (illustrative; needs `hono`).
+
 - **`nestjs.ts`** - injecting a configured `PayClient` into a NestJS service via
   the `@siyegs/pay-kit/nestjs` module (illustrative; needs `@nestjs/common`).
 
