@@ -43,6 +43,31 @@ live behavior, that is exactly the kind of fix we want.
   `docs:`, `test:`, `chore:`) are appreciated.
 - Update the `README`, `CHANGELOG.md`, and types when you change the public API.
 
+## Adding a payment provider
+
+New providers are welcome, but a payments library carries a higher bar than a
+normal dependency: merging an adapter means pay-kit is effectively vouching for
+routing real money through that provider. So a provider PR is reviewed on trust,
+not only on code quality:
+
+- **The provider must be independently verifiable.** A public, stable API
+  reference, a real registered company, and ideally live merchants using it. A
+  brand-new domain whose only references are its own docs will be declined.
+- **It must be verifiable the same way the others are** - runnable against a real
+  test sandbox via `bun run integration`, so its behavior can be confirmed rather
+  than taken on faith. Adapters written only against documentation cannot be
+  marked "verified".
+- **Disclose any affiliation.** If you work on or with the provider, say so in the
+  PR. That is fine - it just changes how it is reviewed and labelled.
+- Until an adapter clears that bar it may be declined, or accepted only behind a
+  clear **community-contributed, not maintainer-verified** label so users know
+  exactly what they are getting.
+- Cover the same surface the other adapters do (or throw a clear `PayKitError`
+  for what is not supported), and follow the guidelines above.
+
+This is about protecting the people who trust pay-kit with their payment flow, not
+about gatekeeping - genuinely useful providers are wanted.
+
 ## Reporting bugs
 
 Open an issue with the provider, the method, a minimal reproduction, and what you
