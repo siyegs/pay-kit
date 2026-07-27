@@ -41,7 +41,8 @@ function toSubunits(major: unknown): number {
 }
 
 function mapStatus(raw: unknown): PaymentStatus {
-  switch (raw) {
+  // Charges report lower-case ("successful"), payouts upper-case ("SUCCESSFUL").
+  switch (typeof raw === "string" ? raw.toLowerCase() : raw) {
     case "successful":
     case "success":
       return "success";
@@ -52,9 +53,15 @@ function mapStatus(raw: unknown): PaymentStatus {
   }
 }
 
-function mapEventType(status: PaymentStatus): WebhookEventType {
+function mapChargeEventType(status: PaymentStatus): WebhookEventType {
   if (status === "success") return "charge.success";
   if (status === "failed") return "charge.failed";
+  return "unknown";
+}
+
+function mapTransferEventType(status: PaymentStatus): WebhookEventType {
+  if (status === "success") return "transfer.success";
+  if (status === "failed") return "transfer.failed";
   return "unknown";
 }
 
@@ -431,17 +438,36 @@ export function createFlutterwaveProvider(ctx: ProviderContext): PaymentProvider
 
       // Flutterwave sends two webhook shapes: the newer `{ event, data: {...} }`
       // and a flat legacy payload (`txRef`/`amount`/`status` at the top level).
-      // Read from `data` when present, else fall back to the root, and accept
-      // both `tx_ref` and `txRef`.
+      // Read from `data` when present, else fall back to the root.
       const data = (event.data ?? event) as Record<string, unknown>;
       const status = mapStatus(data.status);
+      const amount = data.amount !== undefined ? toSubunits(data.amount) : undefined;
+      const currency = data.currency ? String(data.currency) : undefined;
+      const eventName = typeof event.event === "string" ? event.event : "";
+
+      // Payout webhooks (`transfer.*`) carry `reference` (not `tx_ref`) and an
+      // upper-cased status, so they need their own mapping - otherwise a real
+      // payout delivery comes out as an empty `unknown` event.
+      if (eventName.startsWith("transfer")) {
+        const transferRef = data.reference ?? data.tx_ref ?? data.txRef;
+        return {
+          type: mapTransferEventType(status),
+          reference: transferRef !== undefined ? String(transferRef) : "",
+          status,
+          amount,
+          currency,
+          raw: event,
+        };
+      }
+
+      // Charge webhooks: accept both `tx_ref` and `txRef`.
       const reference = data.tx_ref ?? data.txRef;
       return {
-        type: mapEventType(status),
+        type: mapChargeEventType(status),
         reference: reference !== undefined ? String(reference) : "",
         status,
-        amount: data.amount !== undefined ? toSubunits(data.amount) : undefined,
-        currency: data.currency ? String(data.currency) : undefined,
+        amount,
+        currency,
         raw: event,
       };
     },
