@@ -340,6 +340,33 @@ describe("flutterwave: webhooks", () => {
     expect(event.currency).toBe("NGN");
   });
 
+  it("normalizes a payout (transfer) webhook, upper-cased status and all", () => {
+    // Payout deliveries carry `reference` (not `tx_ref`) and an upper-cased
+    // status, and must map to transfer.* rather than falling through as unknown.
+    const payout = JSON.stringify({
+      event: "transfer.completed",
+      data: { id: 1, reference: "trf_1", status: "SUCCESSFUL", amount: 5000, currency: "NGN" },
+    });
+    const pay = createPayClient({ provider: "flutterwave", secretKey: SECRET, webhookSecret: HASH });
+    const event = pay.webhooks.construct(payout, HASH);
+    expect(event.type).toBe("transfer.success");
+    expect(event.reference).toBe("trf_1");
+    expect(event.status).toBe("success");
+    expect(event.amount).toBe(500000);
+  });
+
+  it("maps a failed payout webhook to transfer.failed", () => {
+    const payout = JSON.stringify({
+      event: "transfer.completed",
+      data: { reference: "trf_2", status: "FAILED", amount: 5000, currency: "NGN" },
+    });
+    const pay = createPayClient({ provider: "flutterwave", secretKey: SECRET, webhookSecret: HASH });
+    const event = pay.webhooks.construct(payout, HASH);
+    expect(event.type).toBe("transfer.failed");
+    expect(event.status).toBe("failed");
+    expect(event.reference).toBe("trf_2");
+  });
+
   it("rejects a wrong verif-hash", () => {
     const pay = createPayClient({ provider: "flutterwave", secretKey: SECRET, webhookSecret: HASH });
     try {
