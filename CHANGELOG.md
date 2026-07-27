@@ -6,6 +6,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- **Flutterwave payout webhooks now normalize correctly.** A `transfer.*`
+  delivery carries `reference` (not `tx_ref`) and an upper-cased status
+  (`SUCCESSFUL`/`FAILED`), so it previously fell through the charge mapping and
+  came out as an empty `unknown` event. The adapter now branches on the event
+  name, maps payouts to `transfer.success`/`transfer.failed`, and reads status
+  case-insensitively. Reported by @arowolodaniel (#1).
+
 ## [0.10.0] - 2026-07-26
 
 ### Added
