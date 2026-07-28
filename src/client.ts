@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { PayKitError } from "./errors";
 import { createPaystackProvider } from "./providers/paystack";
 import { createFlutterwaveProvider } from "./providers/flutterwave";
+import { createZevpayProvider } from "./providers/zevpay";
 import { createMockProvider } from "./providers/mock";
 import type {
   PayClient,
@@ -19,6 +20,8 @@ function resolveProvider(config: PayClientConfig, ctx: ProviderContext): Payment
       return createPaystackProvider(ctx);
     case "flutterwave":
       return createFlutterwaveProvider(ctx);
+    case "zevpay":
+      return createZevpayProvider(ctx);
     case "mock":
       return createMockProvider(ctx);
     default:

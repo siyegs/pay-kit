@@ -4,7 +4,9 @@ export type PayKitErrorCode =
   | "timeout"
   | "invalid_signature"
   | "config_error"
-  | "verification_failed";
+  | "verification_failed"
+  /** That provider's adapter does not cover the method you called yet. */
+  | "unsupported";
 
 export interface PayKitErrorOptions {
   code: PayKitErrorCode;

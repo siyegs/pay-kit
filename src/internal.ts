@@ -2,11 +2,22 @@ import { timingSafeEqual } from "node:crypto";
 import { PayKitError } from "./errors";
 import type { ProviderContext, ProviderName } from "./types";
 
+/** Providers report the failure reason at `message`, or nested under `error`. */
+function messageOf(body: Record<string, unknown>): string | undefined {
+  if (typeof body.message === "string") return body.message;
+  const error = body.error as { message?: unknown } | undefined;
+  if (error && typeof error === "object" && typeof error.message === "string") {
+    return error.message;
+  }
+  return undefined;
+}
+
 /**
  * Authenticated JSON request to a provider, with normalized error handling.
- * Both Paystack and Flutterwave use `Authorization: Bearer <secret>` and signal
- * application-level failure in the body (`status: false` / `status: "error"`),
- * so we treat those as errors even on HTTP 200.
+ * Every provider authenticates with `Authorization: Bearer <secret>` and signals
+ * application-level failure in the body (Paystack `status: false`, Flutterwave
+ * `status: "error"`, ZevPay `success: false`), so we treat those as errors even
+ * on HTTP 200.
  */
 export async function providerRequest(
   ctx: ProviderContext,
@@ -56,11 +67,8 @@ export async function providerRequest(
       body = {};
     }
 
-    if (!res.ok || body.status === false || body.status === "error") {
-      const message =
-        typeof body.message === "string"
-          ? body.message
-          : `${provider} request failed (${res.status})`;
+    if (!res.ok || body.status === false || body.status === "error" || body.success === false) {
+      const message = messageOf(body) ?? `${provider} request failed (${res.status})`;
       throw new PayKitError(message, {
         code: "provider_error",
         provider,
