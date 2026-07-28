@@ -12,16 +12,17 @@ import { createPayClient, PayKitError } from "../src";
 const pay = createPayClient({
   provider: "paystack",
   secretKey: process.env.PAYSTACK_SECRET_KEY!,
-  // For Flutterwave, also pass webhookSecret: process.env.FLW_HASH
+  // Flutterwave and ZevPay also need webhookSecret (Secret hash / webhook secret).
 });
 
 const app = express();
 
 app.post("/webhooks/pay", express.raw({ type: "*/*" }), (req, res) => {
-  // Paystack signs with `x-paystack-signature`; Flutterwave sends `verif-hash`.
+  // Each provider names its signature header differently.
   const signature =
     (req.headers["x-paystack-signature"] as string) ??
     (req.headers["verif-hash"] as string) ??
+    (req.headers["x-zevpay-signature"] as string) ??
     "";
 
   try {

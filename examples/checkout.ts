@@ -2,8 +2,10 @@
  * A full checkout flow on the keyless mock provider - runs with no API keys:
  *   bun run examples/checkout.ts
  *
- * Swap `provider: "mock"` for "paystack" / "flutterwave" (with a real secretKey,
- * and a callbackUrl for Flutterwave) to run it against a live provider.
+ * Swap `provider: "mock"` for "paystack" / "flutterwave" / "zevpay" (with a real
+ * secretKey, and a callbackUrl for Flutterwave) to run it against a live
+ * provider. `refund` is Paystack/Flutterwave only - see the provider table in
+ * the README.
  */
 import { createPayClient } from "../src";
 

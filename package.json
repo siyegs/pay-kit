@@ -1,7 +1,7 @@
 {
   "name": "@siyegs/pay-kit",
   "version": "0.10.1",
-  "description": "One typed SDK for African payment rails - unified Paystack & Flutterwave: charge, verify, refund, transfer/payout, resolve accounts, list banks, and verify webhooks, with provider fallback and a keyless mock provider for tests.",
+  "description": "One typed SDK for African payment rails - unified Paystack, Flutterwave & ZevPay Checkout: charge, verify, refund, transfer/payout, resolve accounts, list banks, and verify webhooks, with provider fallback and a keyless mock provider for tests.",
   "type": "module",
   "sideEffects": false,
   "repository": {
@@ -49,6 +49,7 @@
   "keywords": [
     "paystack",
     "flutterwave",
+    "zevpay",
     "payments",
     "payment-gateway",
     "payouts",

@@ -24,5 +24,5 @@ Runnable snippets for pay-kit.
 - **`nestjs.ts`** - injecting a configured `PayClient` into a NestJS service via
   the `@siyegs/pay-kit/nestjs` module (illustrative; needs `@nestjs/common`).
 
-Swap `provider: "mock"` for `"paystack"` or `"flutterwave"` (with a real secret
-key) to run any of these against a live provider.
+Swap `provider: "mock"` for `"paystack"`, `"flutterwave"` or `"zevpay"` (with a
+real secret key) to run any of these against a live provider.

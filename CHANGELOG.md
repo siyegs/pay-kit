@@ -6,6 +6,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- **ZevPay Checkout as a third provider** (`provider: "zevpay"`), covering
+  `initialize`, `verify`, `transfer`, `verifyTransfer`, `resolveAccount`,
+  `listBanks`, `getBalances`, and signature-verified webhooks (HMAC-SHA256 over
+  the raw body, delivered as `x-zevpay-signature`). ZevPay quotes amounts in
+  kobo, so nothing is converted. Its verify endpoint is keyed by checkout
+  session id, so `initialize` returns that as the `reference`; webhooks
+  normalize to the merchant reference you sent, falling back to ZevPay's own.
+- **`"unsupported"` error code.** A method an adapter does not cover yet throws
+  a `PayKitError` with this code before making any network call, so it surfaces
+  at the call site rather than as a provider 404. A `split` a provider can't
+  route is refused for the same reason - dropping it silently would send the
+  vendor's share to the wrong wallet.
+
 ## [0.10.1] - 2026-07-26
 
 ### Fixed
