@@ -32,6 +32,7 @@ import type { ProviderName, WebhookEvent } from "../types";
 const SIGNATURE_HEADERS: Record<ProviderName, string> = {
   paystack: "x-paystack-signature",
   flutterwave: "verif-hash",
+  zevpay: "x-zevpay-signature",
   mock: "x-paystack-signature",
 };
 

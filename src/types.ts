@@ -2,7 +2,7 @@
  * Supported providers. `"mock"` is an in-memory provider for local development
  * and tests - it needs no API keys and makes no network calls.
  */
-export type ProviderName = "paystack" | "flutterwave" | "mock";
+export type ProviderName = "paystack" | "flutterwave" | "zevpay" | "mock";
 
 /** ISO-4217 currency codes commonly supported across African rails. */
 export type Currency = "NGN" | "USD" | "GHS" | "KES" | "ZAR" | (string & {});
@@ -98,7 +98,11 @@ export interface InitializeParams {
 }
 
 export interface InitializeResult {
-  /** Reference to persist and later verify against. */
+  /**
+   * Reference to persist and later verify against. Paystack and Flutterwave
+   * echo the reference you sent; ZevPay names the charge itself and returns its
+   * checkout session id, which is what its `verify` takes.
+   */
   reference: string;
   /** Hosted checkout URL to redirect the customer to. */
   authorizationUrl: string;
@@ -337,6 +341,11 @@ export interface ProviderContext {
   timeoutMs?: number;
 }
 
+/**
+ * Every adapter implements the full surface. A method an adapter does not cover
+ * yet throws a `PayKitError` with code `"unsupported"` up front instead of
+ * failing at the network - see the support table in the README.
+ */
 export interface PaymentProvider {
   readonly name: ProviderName;
   initialize(params: InitializeParams): Promise<InitializeResult>;
@@ -361,8 +370,9 @@ export interface PayClientConfig {
    */
   secretKey?: string;
   /**
-   * Webhook verification secret. Flutterwave requires this ("Secret hash").
-   * Paystack verifies webhooks with the secretKey, so this is optional there.
+   * Webhook verification secret. Required by Flutterwave (its "Secret hash")
+   * and ZevPay (the webhook secret on your key pair). Paystack verifies webhooks
+   * with the secretKey, so this is optional there.
    */
   webhookSecret?: string;
   /** Override the API base URL (useful for tests / proxies). */

@@ -19,9 +19,9 @@ before opening a pull request. CI runs the same three on every push and PR.
 
 ## Verifying against real providers
 
-Unit tests use a mocked `fetch`. To check a change against the **real** Paystack /
-Flutterwave test sandboxes, copy `.env.example` to `.env`, add your TEST secret
-keys, and run:
+Unit tests use a mocked `fetch`. To check a change against the providers' **real**
+test environments - the Paystack and Flutterwave sandboxes, and ZevPay test mode -
+copy `.env.example` to `.env`, add your TEST secret keys, and run:
 
 ```bash
 bun run integration
@@ -36,7 +36,9 @@ live behavior, that is exactly the kind of fix we want.
   to a provider's units inside its adapter, never in shared code.
 - **Keep the API unified.** A method should behave the same across providers; put
   provider-specific quirks inside the adapter and surface differences as clear
-  `PayKitError`s or documented options.
+  `PayKitError`s or documented options. Where a provider has no equivalent of a
+  method, throw `code: "unsupported"` up front rather than letting the call fail
+  at the network - and never silently drop a parameter that moves money.
 - **Add tests** for new behavior - a unit test with a mocked response, and an
   integration step in `scripts/integration.ts` where it makes sense.
 - **One concern per commit.** Conventional-commit messages (`feat:`, `fix:`,

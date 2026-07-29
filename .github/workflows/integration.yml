@@ -1,10 +1,12 @@
-name: Integration (live sandbox)
+name: Integration (live providers)
 
-# Runs the SDK against the real Paystack / Flutterwave TEST sandboxes so drift
-# from the providers' live APIs is caught over time - not just against mocks.
+# Runs the SDK against the providers' real TEST environments - the Paystack and
+# Flutterwave sandboxes, and ZevPay test mode - so drift from their live APIs is
+# caught over time, not just against mocks.
 #
 # One-time setup: add repo secrets (Settings -> Secrets and variables -> Actions):
-#   PAYSTACK_SECRET_KEY, FLUTTERWAVE_SECRET_KEY, FLUTTERWAVE_WEBHOOK_HASH (optional)
+#   PAYSTACK_SECRET_KEY, FLUTTERWAVE_SECRET_KEY, ZEVPAY_SECRET_KEY,
+#   FLUTTERWAVE_WEBHOOK_HASH / ZEVPAY_WEBHOOK_SECRET (optional)
 # With no secrets the harness skips cleanly (exit 0), so this never blocks forks.
 #
 # Transfers are NOT exercised here (they need IP whitelisting + a transfer-enabled
@@ -35,6 +37,8 @@ jobs:
           PAYSTACK_SECRET_KEY: ${{ secrets.PAYSTACK_SECRET_KEY }}
           FLUTTERWAVE_SECRET_KEY: ${{ secrets.FLUTTERWAVE_SECRET_KEY }}
           FLUTTERWAVE_WEBHOOK_HASH: ${{ secrets.FLUTTERWAVE_WEBHOOK_HASH }}
+          ZEVPAY_SECRET_KEY: ${{ secrets.ZEVPAY_SECRET_KEY }}
+          ZEVPAY_WEBHOOK_SECRET: ${{ secrets.ZEVPAY_WEBHOOK_SECRET }}
           # Paystack test resolves need bank code 001; Flutterwave test account 0690000040/044.
           PAYSTACK_RESOLVE_BANK: "001"
           FLUTTERWAVE_RESOLVE_ACCOUNT: "0690000040"

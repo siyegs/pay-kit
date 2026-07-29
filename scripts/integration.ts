@@ -1,9 +1,10 @@
 /**
- * Live-sandbox integration checks.
+ * Live integration checks.
  *
- * Runs the real SDK against the real Paystack / Flutterwave TEST sandboxes so we
- * can confirm endpoint paths and field mappings match live behavior (the unit
- * tests only use mocked responses).
+ * Runs the real SDK against the providers' real TEST environments - the
+ * Paystack and Flutterwave sandboxes, and ZevPay test mode (same host, a
+ * `sk_test_` key) - so we can confirm endpoint paths and field mappings match
+ * live behavior (the unit tests only use mocked responses).
  *
  *   bun run integration
  *
@@ -21,6 +22,11 @@ function isNetworkError(err: unknown): boolean {
   return err instanceof PayKitError && err.code === "network_error";
 }
 
+/** A method the provider's adapter does not cover - a skip, not a failure. */
+function isUnsupported(err: unknown): boolean {
+  return err instanceof PayKitError && err.code === "unsupported";
+}
+
 interface Step {
   name: string;
   run: () => Promise<unknown>;
@@ -34,6 +40,7 @@ const results: {
   ok: boolean;
   soft: boolean;
   net: boolean;
+  skipped: boolean;
   detail: string;
 }[] = [];
 
@@ -55,14 +62,23 @@ async function runSteps(label: string, steps: Step[]): Promise<void> {
   for (const s of steps) {
     try {
       const out = await s.run();
-      results.push({ provider: label, step: s.name, ok: true, soft: !!s.soft, net: false, detail: summarize(out) });
+      results.push({
+        provider: label,
+        step: s.name,
+        ok: true,
+        soft: !!s.soft,
+        net: false,
+        skipped: false,
+        detail: summarize(out),
+      });
       console.log(`  PASS  ${s.name.padEnd(18)} ${summarize(out)}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       // Network errors are environmental (connectivity), not path/field bugs.
       const net = isNetworkError(err);
-      const label2 = net ? "NET " : s.soft ? "WARN" : "FAIL";
-      results.push({ provider: label, step: s.name, ok: false, soft: !!s.soft, net, detail: msg });
+      const skipped = isUnsupported(err);
+      const label2 = skipped ? "SKIP" : net ? "NET " : s.soft ? "WARN" : "FAIL";
+      results.push({ provider: label, step: s.name, ok: false, soft: !!s.soft, net, skipped, detail: msg });
       console.log(`  ${label2}  ${s.name.padEnd(18)} ${msg}`);
     }
   }
@@ -127,10 +143,12 @@ async function checkProvider(provider: ProviderName, cfg: PayClientConfig): Prom
 const paystackKey = process.env.PAYSTACK_SECRET_KEY;
 const flwKey = process.env.FLUTTERWAVE_SECRET_KEY;
 const flwHash = process.env.FLUTTERWAVE_WEBHOOK_HASH;
+const zevpayKey = process.env.ZEVPAY_SECRET_KEY;
+const zevpaySecret = process.env.ZEVPAY_WEBHOOK_SECRET;
 
-if (!paystackKey && !flwKey) {
+if (!paystackKey && !flwKey && !zevpayKey) {
   console.log(
-    "No test keys found.\nCopy .env.example to .env, add your Paystack/Flutterwave TEST secret keys, then re-run `bun run integration`.",
+    "No test keys found.\nCopy .env.example to .env, add your Paystack/Flutterwave/ZevPay TEST secret keys, then re-run `bun run integration`.",
   );
   process.exit(0);
 }
@@ -143,15 +161,23 @@ if (flwKey) {
     webhookSecret: flwHash,
   });
 }
+if (zevpayKey) {
+  await checkProvider("zevpay", {
+    provider: "zevpay",
+    secretKey: zevpayKey,
+    webhookSecret: zevpaySecret,
+  });
+}
 
 const passed = results.filter((r) => r.ok).length;
 const netErrors = results.filter((r) => !r.ok && r.net);
-const softFailed = results.filter((r) => !r.ok && r.soft && !r.net).length;
-// Only non-network, non-soft failures are real path/field mismatches.
-const hardFailed = results.filter((r) => !r.ok && !r.soft && !r.net);
+const skipped = results.filter((r) => r.skipped).length;
+const softFailed = results.filter((r) => !r.ok && r.soft && !r.net && !r.skipped).length;
+// Only non-network, non-soft, non-skipped failures are real path/field mismatches.
+const hardFailed = results.filter((r) => !r.ok && !r.soft && !r.net && !r.skipped);
 
 console.log(
-  `\n${passed} passed, ${softFailed} soft-failed, ${netErrors.length} network-error, ${hardFailed.length} failed`,
+  `\n${passed} passed, ${skipped} skipped, ${softFailed} soft-failed, ${netErrors.length} network-error, ${hardFailed.length} failed`,
 );
 if (netErrors.length) {
   console.log("Network errors (environmental - connectivity to the provider, not a code bug; re-run):");

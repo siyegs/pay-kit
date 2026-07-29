@@ -1,6 +1,6 @@
 # pay-kit
 
-> One typed TypeScript SDK unifying **Paystack** and **Flutterwave** - charge, verify, refund, pay out, split, and verify webhooks through a single API. Open-source, runs in your own backend, no middleman in your money path.
+> One typed TypeScript SDK unifying **Paystack**, **Flutterwave** and **ZevPay Checkout** - charge, verify, refund, pay out, split, and verify webhooks through a single API. Open-source, runs in your own backend, no middleman in your money path.
 
 [![CI](https://github.com/siyegs/pay-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/siyegs/pay-kit/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/badge/npm-%40siyegs%2Fpay--kit-cb3837)](https://www.npmjs.com/package/@siyegs/pay-kit)
@@ -10,15 +10,15 @@
 
 > **Status: beta (pre-1.0).** pay-kit is fully typed, unit-tested, and now **verified end to end against the live Paystack and Flutterwave sandboxes** for the core flows - initialize, verify, refund, saved-card charge, subaccount creation, and signature-verified webhooks. Live testing caught and fixed two real bugs. A few methods stay account-gated in test mode (payouts, `verifyTransfer`); the [Status](#status) section says exactly what is and isn't verified. Pin an exact version and test the flows you depend on - the API may still change before 1.0.
 
-Most serious African products integrate **both** Paystack and Flutterwave - for coverage, redundancy, and better rates. But their APIs, webhook signatures, error shapes, and currency units all differ, so teams re-write the same fragile glue every time. `pay-kit` gives you **one typed interface** over both. And unlike a hosted payments gateway, it is a library you own: it runs in your backend and calls the providers directly with your own keys - no third party in your money path, no monthly bill.
+Most serious African products integrate **more than one** rail - for coverage, redundancy, and better rates. But their APIs, webhook signatures, error shapes, and currency units all differ, so teams re-write the same fragile glue every time. `pay-kit` gives you **one typed interface** over all of them. And unlike a hosted payments gateway, it is a library you own: it runs in your backend and calls the providers directly with your own keys - no third party in your money path, no monthly bill.
 
 ## Why
 
-- **One API, two providers.** Swap `provider: "paystack"` for `"flutterwave"` - your code doesn't change.
+- **One API, three providers.** Swap `provider: "paystack"` for `"flutterwave"` or `"zevpay"` - your code doesn't change.
 - **Subunits everywhere.** Amounts are always in the smallest unit (kobo/cents), Stripe-style, to kill float-rounding bugs. pay-kit converts per provider.
-- **Signature-verified webhooks.** Paystack HMAC-SHA512 and Flutterwave `verif-hash`, both normalized to the same event shape.
+- **Signature-verified webhooks.** Paystack HMAC-SHA512, Flutterwave `verif-hash`, and ZevPay HMAC-SHA256 - all normalized to the same event shape.
 - **Typed end to end.** Full TypeScript types, one `PayKitError` with a machine-readable `code`.
-- **No middleman.** A library, not a hosted gateway - it calls Paystack/Flutterwave straight from your backend with your own keys. Nothing routes through a third-party service, so there's no added dependency, latency, monthly fee, or extra point of failure in your payment flow.
+- **No middleman.** A library, not a hosted gateway - it calls each provider straight from your backend with your own keys. Nothing routes through a third-party service, so there's no added dependency, latency, monthly fee, or extra point of failure in your payment flow.
 - **Tiny + dependency-free.** Uses native `fetch` and `node:crypto`. ESM + CJS.
 
 ### Library vs hosted gateway
@@ -52,7 +52,7 @@ Runs on **Bun** and **Node >= 18** (both provide global `fetch` and `node:crypto
 import { createPayClient } from "@siyegs/pay-kit";
 
 const pay = createPayClient({
-  provider: "paystack", // or "flutterwave"
+  provider: "paystack", // or "flutterwave" / "zevpay"
   secretKey: process.env.PAYSTACK_SECRET_KEY!,
 });
 
@@ -81,7 +81,10 @@ Verify the raw request body against its signature header and get a normalized ev
 // Express example
 app.post("/webhooks/pay", express.raw({ type: "*/*" }), (req, res) => {
   const signature =
-    req.header("x-paystack-signature") ?? req.header("verif-hash") ?? "";
+    req.header("x-paystack-signature") ??
+    req.header("verif-hash") ??
+    req.header("x-zevpay-signature") ??
+    "";
   try {
     const event = pay.webhooks.construct(req.body.toString("utf8"), signature);
     if (event.type === "charge.success") {
@@ -96,6 +99,7 @@ app.post("/webhooks/pay", express.raw({ type: "*/*" }), (req, res) => {
 
 - **Paystack**: signature header is `x-paystack-signature`; verification uses your `secretKey`.
 - **Flutterwave**: header is `verif-hash`; pass your "Secret hash" as `webhookSecret` when creating the client.
+- **ZevPay**: header is `x-zevpay-signature` (HMAC-SHA256 over the raw body); pass the webhook secret on your key pair as `webhookSecret`.
 
 ### Typed events
 
@@ -284,7 +288,46 @@ const result = await pay.verify(reference); // { status: "success", amount: 5000
 await pay.transfer({ amount: 10000, recipient: { accountNumber: "0001234567", bankCode: "001" } });
 ```
 
-The mock is **stateful per client**: a charge you `initialize` is remembered, so a later `verify` echoes the same amount and customer. An unknown reference verifies as `"abandoned"`, and each `createPayClient({ provider: "mock" })` gets its own isolated store. Swap `provider` back to `"paystack"` or `"flutterwave"` for production - nothing else changes.
+The mock is **stateful per client**: a charge you `initialize` is remembered, so a later `verify` echoes the same amount and customer. An unknown reference verifies as `"abandoned"`, and each `createPayClient({ provider: "mock" })` gets its own isolated store. Swap `provider` back to `"paystack"`, `"flutterwave"` or `"zevpay"` for production - nothing else changes.
+
+## Providers
+
+| method                          | Paystack | Flutterwave | ZevPay | mock |
+| ------------------------------- | -------- | ----------- | ------ | ---- |
+| `initialize` / `verify`         | yes      | yes         | yes    | yes  |
+| `chargeAuthorization`           | yes      | yes         | -      | yes  |
+| `refund`                        | yes      | yes         | -      | yes  |
+| `transfer` / `verifyTransfer`   | yes      | yes         | yes    | yes  |
+| `resolveAccount` / `listBanks`  | yes      | yes         | yes    | yes  |
+| `getBalances`                   | yes      | yes         | yes    | yes  |
+| `listTransactions`              | yes      | yes         | -      | yes  |
+| `createSubaccount` / `split`    | yes      | yes         | -      | yes  |
+| `webhooks.construct`            | yes      | yes         | yes    | yes  |
+
+A `-` is not covered by that adapter yet. Calling it throws a `PayKitError` with
+code `"unsupported"` **before any network call**, so you find out at the call
+site instead of from a provider 404 - and a `split` the provider can't route is
+refused rather than silently dropped.
+
+### ZevPay Checkout
+
+```ts
+const pay = createPayClient({
+  provider: "zevpay",
+  secretKey: process.env.ZEVPAY_SECRET_KEY!, // sk_test_... / sk_live_...
+  webhookSecret: process.env.ZEVPAY_WEBHOOK_SECRET,
+});
+```
+
+Keys: [dashboard.zevpaycheckout.com/api-keys](https://dashboard.zevpaycheckout.com/api-keys).
+API reference: [docs.zevpaycheckout.com](https://docs.zevpaycheckout.com).
+
+- **Amounts are already in kobo**, so nothing is converted - `500000` is NGN 5,000.00 on both sides.
+- **`initialize` returns the checkout session id as `reference`.** ZevPay names the charge itself, and its verify endpoint is keyed by session id - the same value it appends to your `callbackUrl` - so `pay.verify(reference)` behaves exactly as it does on the other providers.
+- **Webhooks report the reference you sent.** Pass your own order id as `params.reference`: ZevPay echoes it as `merchant_reference` and pay-kit normalizes `event.reference` to it, falling back to ZevPay's own reference when you didn't set one.
+- **Payouts** need the `transfers` permission and a programmable-debit wallet on the key. ZevPay requires the beneficiary name, so pay-kit resolves it for you when `recipient.name` is omitted.
+- **Which payment methods a session offers** is configured on the API key in the dashboard.
+- **Inline checkout** is a browser SDK driven by your *public* key, so it sits outside a server-side SDK like this one. It still creates the same session and fires the same signed `charge.success` webhook, so `pay.webhooks.construct()` verifies it and `pay.verify(sessionId)` confirms it server-side.
 
 ## API
 
@@ -292,9 +335,9 @@ The mock is **stateful per client**: a charge you `initialize` is remembered, so
 
 | option             | type                          | notes                                              |
 | ------------------ | ----------------------------- | -------------------------------------------------- |
-| `provider`         | `"paystack" \| "flutterwave" \| "mock"` | required                                 |
+| `provider`         | `"paystack" \| "flutterwave" \| "zevpay" \| "mock"` | required                      |
 | `secretKey`        | `string`                      | required for real providers, server-side only      |
-| `webhookSecret`    | `string`                      | required for Flutterwave webhooks (Secret hash)    |
+| `webhookSecret`    | `string`                      | required for Flutterwave (Secret hash) and ZevPay webhooks |
 | `baseUrl`          | `string`                      | override API base (tests/proxies)                  |
 | `fetch`            | `typeof fetch`                | inject a fetch impl                                |
 | `generateReference`| `() => string`                | customize reference generation                     |
@@ -346,6 +389,7 @@ try {
 | `invalid_signature` | A webhook signature did not match. Reject the webhook. |
 | `config_error` | Missing/invalid config (e.g. no `secretKey`, or a Flutterwave call without `callbackUrl`/`webhookSecret`). |
 | `verification_failed` | A payment could not be verified as successful. |
+| `unsupported` | That provider's adapter does not cover the method you called. Thrown before any network call. |
 
 `isRetryableError(err)` returns `true` for `network_error`, `timeout`, and outage-like HTTP statuses (5xx/429) - the same rule the fallback client uses.
 
@@ -403,6 +447,7 @@ Bank codes are **provider-specific**, so list and resolve against the same provi
 - [x] Typed webhook events (discriminated union + type guards)
 - [x] Web / Next.js webhook route adapter (`@siyegs/pay-kit/next`, works in any Fetch-API runtime)
 - [x] NestJS module adapter (`@siyegs/pay-kit/nestjs`)
+- [x] Third provider: ZevPay Checkout
 - [ ] Plans & subscriptions
 
 ## Status
@@ -412,6 +457,7 @@ pay-kit is **beta (pre-1.0)**. Here is exactly what is and is not verified:
 - **Unit-tested:** TypeScript types compile, the package builds (ESM + CJS + `.d.ts`), and a full unit-test suite passes (mocked `fetch`). The mock provider is exercised directly.
 - **Live-sandbox verified (both providers):** `initialize`, `verify`, `resolveAccount`, `listBanks`, `getBalances`, `listTransactions`, `refund`, `chargeAuthorization`, and signature-verified webhooks have all been run successfully against the real Paystack and Flutterwave test sandboxes. Two bugs were caught and fixed this way: `initialize` and `chargeAuthorization` both require a redirect URL on Flutterwave (`callbackUrl`), which the SDK previously omitted. Webhook checks confirm a valid signature is accepted, a tampered one is rejected, and the amount is normalized to subunits on both providers - and both are additionally verified against an **actual live delivery** captured from the dashboard (via `scripts/webhook-live.ts`). Real-delivery testing caught a third bug: Flutterwave ships a flat legacy webhook payload the parser didn't handle, now fixed.
 - **Live-sandbox verified (Flutterwave):** `createSubaccount` creates a real subaccount, and a charge carrying that subaccount as a `split` is accepted by the live API - so the subaccount + split mapping is verified end to end on Flutterwave. On Paystack both are request-correct but account-gated (see below).
+- **ZevPay:** implemented to the published [API reference](https://docs.zevpaycheckout.com) - endpoints, field names, and the HMAC-SHA256 signature scheme - and covered by the unit suite, including a real signature round-trip. ZevPay has no separate sandbox host: test mode is the same base URL with a `sk_test_` key, so `bun run integration` covers it as soon as `ZEVPAY_SECRET_KEY` is set.
 - **Request-validated but account-gated:** `transfer`, `verifyTransfer`, and Paystack `createSubaccount` reach the provider and pass request validation (and Flutterwave IP whitelisting), but completing them requires a transfer-enabled merchant account and a resolvable settlement account - the test account does not have one, so Paystack rejects with "Account details are invalid" / "cannot resolve account". Paystack `splits` is unit-tested only (it needs a created subaccount to attach).
 
 Run the read/charge checks yourself with real test keys: `bun run integration`, and the paid-charge checks with `bun run scripts/verify-charge.ts init <provider>` then `... confirm <provider>` after paying the test charge (see [Development](#development)). Please report any mismatch via [issues](https://github.com/siyegs/pay-kit/issues).
@@ -429,16 +475,16 @@ bun run build        # tsup -> dist (ESM + CJS + .d.ts)
 
 Runnable examples live in [`examples/`](./examples) (e.g. `bun run examples/checkout.ts`).
 
-### Live-sandbox integration checks
+### Live integration checks
 
-To validate against the **real** Paystack / Flutterwave test sandboxes (not mocks):
+To validate against the **real** provider APIs (not mocks) - the Paystack and Flutterwave test sandboxes, and ZevPay test mode:
 
 ```bash
 cp .env.example .env   # then add your TEST secret keys
 bun run integration
 ```
 
-`bun run integration` reads keys from `.env` (gitignored - never commit them) and runs `listBanks`, `getBalances`, `listTransactions`, a test-mode `initialize`, and `verify` against each configured provider, printing PASS / WARN / FAIL per step. It only reads and creates a single test-mode charge by default; set `RESOLVE_ACCOUNT` + `RESOLVE_BANK` (and `RUN_TRANSFERS=1`) to also exercise account resolution and a test payout. With no keys present it skips cleanly.
+`bun run integration` reads keys from `.env` (gitignored - never commit them) and runs `listBanks`, `getBalances`, `listTransactions`, a test-mode `initialize`, and `verify` against each configured provider, printing PASS / SKIP / WARN / FAIL per step (a method the adapter doesn't cover is a SKIP, not a failure). It only reads and creates a single test-mode charge by default; set `RESOLVE_ACCOUNT` + `RESOLVE_BANK` (and `RUN_TRANSFERS=1`) to also exercise account resolution and a test payout. With no keys present it skips cleanly.
 
 ### Releasing
 
