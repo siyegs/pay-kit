@@ -15,7 +15,7 @@ export function Comparison() {
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
         <div className="mx-auto max-w-3xl text-center">
           <p className="eyebrow">The choice</p>
-          <h2 id="compare-heading" className="text-balance mt-4 text-4xl font-semibold leading-tight text-foreground sm:text-5xl">
+          <h2 id="compare-heading" className="text-balance mt-4 text-3xl leading-tight text-foreground sm:text-5xl font-semibold">
             Use a gateway when you want a platform. Use pay-kit when you want control.
           </h2>
           <p className="mt-5 text-base leading-8 text-muted">
@@ -25,17 +25,17 @@ export function Comparison() {
         </div>
 
         <div className="premium-shell mx-auto mt-12 max-w-5xl overflow-x-auto rounded-lg" role="table" aria-label="Comparison between pay-kit and hosted gateways">
-          <div className="min-w-[680px]">
-            <div className="relative grid grid-cols-[0.8fr_1fr_1fr] border-b border-white/[0.08] bg-white/[0.035] text-sm" role="row">
-              <div className="px-4 py-4 text-muted sm:px-6" role="columnheader" />
-              <div className="px-4 py-4 font-bold text-brand sm:px-6" role="columnheader">pay-kit</div>
-              <div className="px-4 py-4 font-bold text-muted sm:px-6" role="columnheader">hosted gateway</div>
+          <div className="min-w-[500px] sm:min-w-[680px]">
+            <div className="relative grid grid-cols-[0.7fr_1fr_1fr] sm:grid-cols-[0.8fr_1fr_1fr] border-b border-white/[0.08] bg-white/[0.035] text-sm" role="row">
+              <div className="px-3 sm:px-6 py-3 sm:py-4 text-muted" role="columnheader" />
+              <div className="px-3 sm:px-6 py-3 sm:py-4 font-bold text-brand" role="columnheader">pay-kit</div>
+              <div className="px-3 sm:px-6 py-3 sm:py-4 font-bold text-muted" role="columnheader">hosted gateway</div>
             </div>
             {rows.map((row) => (
-              <div key={row.feature} className="relative grid grid-cols-[0.8fr_1fr_1fr] border-b border-white/[0.06] last:border-b-0" role="row">
-                <div className="px-4 py-4 text-sm font-semibold text-muted sm:px-6" role="rowheader">{row.feature}</div>
-                <div className="px-4 py-4 text-sm leading-6 text-foreground sm:px-6" role="cell">{row.paykit}</div>
-                <div className="px-4 py-4 text-sm leading-6 text-muted sm:px-6" role="cell">{row.gateway}</div>
+              <div key={row.feature} className="relative grid grid-cols-[0.7fr_1fr_1fr] sm:grid-cols-[0.8fr_1fr_1fr] border-b border-white/[0.06] last:border-b-0" role="row">
+                <div className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-semibold text-muted" role="rowheader">{row.feature}</div>
+                <div className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm leading-5 sm:leading-6 text-foreground" role="cell">{row.paykit}</div>
+                <div className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm leading-5 sm:leading-6 text-muted" role="cell">{row.gateway}</div>
               </div>
             ))}
           </div>

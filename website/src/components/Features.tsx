@@ -37,10 +37,10 @@ export function Features() {
   return (
     <section id="features" className="section-rule py-24 sm:py-32" aria-labelledby="features-heading">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
-        <div className="grid gap-10 lg:grid-cols-[0.75fr_1.25fr] lg:gap-16">
+        <div className="grid gap-8 lg:grid-cols-[0.75fr_1.25fr] lg:gap-16">
           <div>
             <p className="eyebrow">Why teams install it</p>
-            <h2 id="features-heading" className="text-balance mt-4 max-w-xl text-4xl font-semibold leading-tight text-foreground sm:text-5xl">
+            <h2 id="features-heading" className="text-balance mt-4 max-w-xl text-3xl font-semibold leading-tight text-foreground sm:text-5xl">
               Payment code that behaves like infrastructure.
             </h2>
             <p className="mt-5 max-w-lg text-base leading-8 text-muted">
@@ -51,10 +51,10 @@ export function Features() {
 
           <div className="grid gap-px overflow-hidden rounded-lg border border-white/[0.08] bg-white/[0.08] sm:grid-cols-2" role="list">
             {features.map((feature) => (
-              <article key={feature.title} className="bg-card/95 p-6 transition hover:bg-[#121a20]" role="listitem">
+              <article key={feature.title} className="bg-card/95 p-5 sm:p-6 transition hover:bg-[#121a20]" role="listitem">
                 <span className={`block h-1 w-8 rounded-full ${feature.accent}`} aria-hidden="true" />
-                <h3 className="mt-5 text-lg font-semibold leading-6 text-foreground">{feature.title}</h3>
-                <p className="mt-3 text-sm leading-6 text-muted">{feature.desc}</p>
+                <h3 className="mt-4 sm:mt-5 text-base sm:text-lg font-semibold leading-6 text-foreground">{feature.title}</h3>
+                <p className="mt-2 sm:mt-3 text-sm leading-6 text-muted">{feature.desc}</p>
               </article>
             ))}
           </div>

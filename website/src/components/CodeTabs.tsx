@@ -117,7 +117,7 @@ export function CodeTabs() {
                   aria-selected={active === snippet.id}
                   aria-controls={`code-panel-${snippet.id}`}
                   id={`code-tab-${snippet.id}`}
-                  className={`min-h-14 bg-card/90 px-4 text-left text-sm font-semibold transition ${
+                  className={`min-h-12 sm:min-h-14 bg-card/90 px-3 sm:px-4 text-left text-sm font-semibold transition ${
                     active === snippet.id
                       ? "text-brand"
                       : "text-muted hover:bg-[#121a20] hover:text-foreground"
@@ -130,12 +130,12 @@ export function CodeTabs() {
           </div>
 
           <div className="premium-shell rounded-lg" role="tabpanel" id={`code-panel-${activeSnippet.id}`} aria-labelledby={`code-tab-${activeSnippet.id}`}>
-            <div className="relative border-b border-white/[0.08] bg-white/[0.035] px-5 py-4">
-              <p className="font-mono text-xs text-muted">examples/{activeSnippet.id}.ts</p>
-              <p className="mt-2 text-sm font-medium text-foreground">{activeSnippet.note}</p>
+            <div className="relative border-b border-white/[0.08] bg-white/[0.035] px-4 sm:px-5 py-3 sm:py-4">
+              <p className="font-mono text-[11px] sm:text-xs text-muted">examples/{activeSnippet.id}.ts</p>
+              <p className="mt-1.5 sm:mt-2 text-sm font-medium text-foreground">{activeSnippet.note}</p>
             </div>
-            <div className="relative overflow-x-auto p-5 sm:p-6">
-              <pre className="min-h-[270px] min-w-[560px] text-[13px] leading-7 sm:text-sm">
+            <div className="relative -mx-4 sm:-mx-0 overflow-x-auto p-4 sm:p-6">
+              <pre className="min-h-[200px] sm:min-h-[270px] min-w-[440px] sm:min-w-[560px] text-[12px] leading-6 sm:text-[13px] sm:leading-7">
                 <code className="font-mono text-foreground/82">{activeSnippet.code}</code>
               </pre>
             </div>
