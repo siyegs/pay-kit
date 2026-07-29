@@ -5,6 +5,7 @@ import { Features } from "../components/Features";
 import { CodeTabs } from "../components/CodeTabs";
 import { Stats } from "../components/Stats";
 import { Comparison } from "../components/Comparison";
+import { FAQ } from "../components/FAQ";
 import { CTA } from "../components/CTA";
 import { Footer } from "../components/Footer";
 import { BackToTop } from "../components/BackToTop";
@@ -25,7 +26,8 @@ export function Home() {
           <Reveal delay={0.2}><CodeTabs /></Reveal>
           <Reveal delay={0.1}><Stats /></Reveal>
           <Reveal delay={0.15}><Comparison /></Reveal>
-          <Reveal delay={0.2}><CTA /></Reveal>
+          <Reveal delay={0.2}><FAQ /></Reveal>
+          <Reveal delay={0.25}><CTA /></Reveal>
         </main>
         <Footer />
         <BackToTop />
