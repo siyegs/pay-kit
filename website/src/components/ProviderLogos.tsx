@@ -1,6 +1,13 @@
 import { motion } from "framer-motion";
 
-const providers = [
+interface Provider {
+  name: string;
+  color: string;
+  border: string;
+  bg: string;
+}
+
+const providers: Provider[] = [
   {
     name: "Paystack",
     color: "text-[#0ba95b]",
@@ -35,7 +42,7 @@ const providers = [
 
 export function ProviderLogos() {
   return (
-    <section className="py-16 border-y border-border/40">
+    <section className="py-16 border-y border-border/40" aria-label="Supported providers">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <p className="text-center text-sm text-muted mb-8 font-medium tracking-wide uppercase">
           Supported providers
@@ -50,7 +57,7 @@ export function ProviderLogos() {
               transition={{ delay: i * 0.1 }}
               className={`inline-flex items-center gap-2.5 rounded-xl border ${p.border} ${p.bg} px-5 py-3`}
             >
-              <div className={`h-2.5 w-2.5 rounded-full ${i === 2 ? "bg-muted" : "bg-current"} ${p.color.replace("text-", "")}`} />
+              <div className={`h-2.5 w-2.5 rounded-full ${i === 2 ? "bg-muted" : "bg-current"} ${p.color.replace("text-", "")}`} aria-hidden="true" />
               <span className={`text-sm font-semibold ${p.color}`}>{p.name}</span>
             </motion.div>
           ))}

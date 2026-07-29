@@ -1,6 +1,11 @@
 import { motion } from "framer-motion";
 
-const snippets = [
+interface CodeSnippet {
+  title: string;
+  code: string;
+}
+
+const snippets: CodeSnippet[] = [
   {
     title: "Initialize a charge",
     code: `const { authorizationUrl, reference } = await pay.initialize({
@@ -79,7 +84,7 @@ export class AppModule {}
 
 export function CodeExample() {
   return (
-    <section id="code" className="py-24 sm:py-32">
+    <section id="code" className="py-24 sm:py-32" aria-labelledby="codeexample-heading">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -87,7 +92,7 @@ export function CodeExample() {
           viewport={{ once: true }}
           className="mx-auto max-w-2xl text-center mb-16"
         >
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
+          <h2 id="codeexample-heading" className="text-3xl sm:text-4xl font-bold tracking-tight">
             Simple, <span className="text-brand">predictable</span> API
           </h2>
           <p className="mt-4 text-muted text-lg">
@@ -95,7 +100,7 @@ export function CodeExample() {
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" role="list">
           {snippets.map((s, i) => (
             <motion.div
               key={i}
@@ -104,6 +109,7 @@ export function CodeExample() {
               viewport={{ once: true }}
               transition={{ delay: i * 0.05 }}
               className="rounded-xl border border-border bg-card overflow-hidden group hover:border-brand/30 transition-colors"
+              role="listitem"
             >
               <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-surface/50">
                 <span className="text-xs text-muted font-medium">{s.title}</span>
