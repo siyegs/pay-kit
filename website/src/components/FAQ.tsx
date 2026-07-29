@@ -92,7 +92,7 @@ export function FAQ() {
             pay-kit is a library, not a platform. Here is what that means in practice.
           </p>
 
-          <div className="mt-10 sm:mt-12 rounded-lg border border-white/[0.08] bg-card/60 px-4 sm:px-6">
+          <div className="mt-12 rounded-lg border border-white/[0.08] bg-card/60 px-6">
             {faqs.map((faq) => (
               <FAQItem
                 key={faq.q}

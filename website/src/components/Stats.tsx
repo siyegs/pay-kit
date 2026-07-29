@@ -14,10 +14,10 @@ export function Stats() {
         <h2 id="stats-heading" className="sr-only">pay-kit by the numbers</h2>
         <div className="grid gap-px overflow-hidden rounded-lg border border-white/[0.08] bg-white/[0.08] md:grid-cols-4">
           {stats.map((stat) => (
-            <div key={stat.label} className="bg-card/80 p-5 sm:p-6">
-              <p className="text-3xl sm:text-5xl font-semibold tracking-tight text-foreground">{stat.value}</p>
-              <p className="mt-2 sm:mt-3 text-sm font-bold text-brand">{stat.label}</p>
-              <p className="mt-1 sm:mt-2 text-sm leading-6 text-muted">{stat.detail}</p>
+            <div key={stat.label} className="bg-card/80 p-6">
+              <p className="text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">{stat.value}</p>
+              <p className="mt-3 text-sm font-bold text-brand">{stat.label}</p>
+              <p className="mt-2 text-sm leading-6 text-muted">{stat.detail}</p>
             </div>
           ))}
         </div>
