@@ -1,4 +1,6 @@
-const stats = [
+import type { Stat } from "../types";
+
+const stats: Stat[] = [
   { value: "2", label: "provider adapters", detail: "Paystack and Flutterwave behind one client" },
   { value: "0", label: "runtime dependencies", detail: "native fetch and node:crypto only" },
   { value: "100%", label: "typed surface", detail: "responses, webhooks, and errors" },
@@ -7,8 +9,9 @@ const stats = [
 
 export function Stats() {
   return (
-    <section className="section-rule py-16">
+    <section className="section-rule py-16" aria-labelledby="stats-heading">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
+        <h2 id="stats-heading" className="sr-only">pay-kit by the numbers</h2>
         <div className="grid gap-px overflow-hidden rounded-lg border border-white/[0.08] bg-white/[0.08] md:grid-cols-4">
           {stats.map((stat) => (
             <div key={stat.label} className="bg-card/80 p-6">

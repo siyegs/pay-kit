@@ -1,12 +1,12 @@
 export function CTA() {
   return (
-    <section className="section-rule py-24 sm:py-32">
+    <section className="section-rule py-24 sm:py-32" aria-labelledby="cta-heading">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
         <div className="premium-shell rounded-lg p-6 sm:p-10 lg:p-12">
           <div className="relative grid gap-10 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
             <div>
               <p className="eyebrow">Ship the first route</p>
-              <h2 className="text-balance mt-4 max-w-3xl text-4xl font-semibold leading-tight text-foreground sm:text-5xl">
+              <h2 id="cta-heading" className="text-balance mt-4 max-w-3xl text-4xl font-semibold leading-tight text-foreground sm:text-5xl">
                 Add payments without handing your checkout path to another middleman.
               </h2>
               <p className="mt-5 max-w-2xl text-base leading-8 text-muted">

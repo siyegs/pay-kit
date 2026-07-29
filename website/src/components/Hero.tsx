@@ -1,4 +1,6 @@
-const routes = [
+import type { RouteStatus } from "../types";
+
+const routes: RouteStatus[] = [
   { label: "Charge", provider: "Paystack", status: "verified", amount: "NGN 5,000" },
   { label: "Refund", provider: "Flutterwave", status: "queued", amount: "GHS 320" },
   { label: "Webhook", provider: "Paystack", status: "signed", amount: "charge.success" },
@@ -6,15 +8,15 @@ const routes = [
 
 export function Hero() {
   return (
-    <section className="relative overflow-hidden pt-28 sm:pt-36">
+    <section className="relative overflow-hidden pt-28 sm:pt-36" aria-labelledby="hero-heading">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
         <div className="mx-auto max-w-5xl pb-12 text-center sm:pb-16">
           <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-white/[0.1] bg-white/[0.045] px-3.5 py-1.5">
-            <span className="h-1.5 w-1.5 rounded-full bg-brand shadow-[0_0_14px_rgba(139,255,202,0.8)]" />
+            <span className="h-1.5 w-1.5 rounded-full bg-brand shadow-[0_0_14px_rgba(139,255,202,0.8)]" aria-hidden="true" />
             <span className="text-xs font-semibold text-muted">v0.10.1 / MIT / direct provider keys</span>
           </div>
 
-          <h1 className="text-balance font-display text-[clamp(3.05rem,8vw,7.45rem)] font-semibold leading-[0.9] text-foreground">
+          <h1 id="hero-heading" className="text-balance font-display text-[clamp(3.05rem,8vw,7.45rem)] font-semibold leading-[0.9] text-foreground">
             The payment SDK for builders who keep the money path short.
           </h1>
 
@@ -49,7 +51,7 @@ export function Hero() {
           </div>
         </div>
 
-        <div className="premium-shell mx-auto mb-[-46px] max-w-6xl rounded-lg">
+        <div className="premium-shell mx-auto mb-[-46px] max-w-6xl rounded-lg" role="region" aria-label="Live provider status and code example">
           <div className="relative grid gap-px bg-white/[0.06] md:grid-cols-[0.95fr_1.3fr]">
             <div className="bg-card/95 p-5 sm:p-6 lg:p-7">
               <div className="flex items-center justify-between border-b border-white/[0.08] pb-4">
@@ -73,7 +75,7 @@ export function Hero() {
                       <p className="font-mono text-xs text-brand">{route.status}</p>
                     </div>
                     <div className="mt-4 flex items-center gap-3">
-                      <span className="h-px flex-1 bg-brand/35" />
+                      <span className="h-px flex-1 bg-brand/35" aria-hidden="true" />
                       <span className="rounded-full border border-white/[0.08] px-2.5 py-1 font-mono text-[11px] text-muted">
                         {route.amount}
                       </span>

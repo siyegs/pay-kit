@@ -1,6 +1,7 @@
 import { useState } from "react";
+import type { CodeSnippet } from "../types";
 
-const snippets = [
+const snippets: CodeSnippet[] = [
   {
     id: "initialize",
     label: "Charge",
@@ -94,12 +95,12 @@ export function CodeTabs() {
   const activeSnippet = snippets.find((s) => s.id === active) ?? snippets[0];
 
   return (
-    <section id="code" className="section-rule py-24 sm:py-32">
+    <section id="code" className="section-rule py-24 sm:py-32" aria-labelledby="code-heading">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
         <div className="grid gap-10 lg:grid-cols-[0.8fr_1.2fr] lg:items-start lg:gap-16">
           <div>
             <p className="eyebrow">API surface</p>
-            <h2 className="text-balance mt-4 max-w-xl text-4xl font-semibold leading-tight text-foreground sm:text-5xl">
+            <h2 id="code-heading" className="text-balance mt-4 max-w-xl text-4xl font-semibold leading-tight text-foreground sm:text-5xl">
               Learn one payment shape. Keep it everywhere.
             </h2>
             <p className="mt-5 max-w-lg text-base leading-8 text-muted">
@@ -107,11 +108,15 @@ export function CodeTabs() {
               so product code stays readable after the second provider arrives.
             </p>
 
-            <div className="mt-8 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-white/[0.08] bg-white/[0.08]">
+            <div className="mt-8 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-white/[0.08] bg-white/[0.08]" role="tablist" aria-label="Code example tabs">
               {snippets.map((snippet) => (
                 <button
                   key={snippet.id}
                   onClick={() => setActive(snippet.id)}
+                  role="tab"
+                  aria-selected={active === snippet.id}
+                  aria-controls={`code-panel-${snippet.id}`}
+                  id={`code-tab-${snippet.id}`}
                   className={`min-h-14 bg-card/90 px-4 text-left text-sm font-semibold transition ${
                     active === snippet.id
                       ? "text-brand"
@@ -124,7 +129,7 @@ export function CodeTabs() {
             </div>
           </div>
 
-          <div className="premium-shell rounded-lg">
+          <div className="premium-shell rounded-lg" role="tabpanel" id={`code-panel-${activeSnippet.id}`} aria-labelledby={`code-tab-${activeSnippet.id}`}>
             <div className="relative border-b border-white/[0.08] bg-white/[0.035] px-5 py-4">
               <p className="font-mono text-xs text-muted">examples/{activeSnippet.id}.ts</p>
               <p className="mt-2 text-sm font-medium text-foreground">{activeSnippet.note}</p>
