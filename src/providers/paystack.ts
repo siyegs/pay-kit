@@ -113,6 +113,7 @@ function mapPlan(data: Record<string, unknown>): Plan {
     interval: data.interval ? String(data.interval) : undefined,
     currency: data.currency ? String(data.currency) : undefined,
     status: data.status ? String(data.status) : undefined,
+    duration: data.duration !== undefined ? Number(data.duration) : undefined,
     raw: data,
   };
 }
