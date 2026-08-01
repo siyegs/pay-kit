@@ -516,6 +516,22 @@ export interface PaymentProvider {
   getBalances(): Promise<ProviderBalance[]>;
   listTransactions(options?: ListTransactionsOptions): Promise<TransactionList>;
   createSubaccount(params: CreateSubaccountParams): Promise<Subaccount>;
+  createPlan(params: CreatePlanParams): Promise<Plan>;
+  listPlans(options?: ListPlansOptions): Promise<PlanList>;
+  fetchPlan(idOrCode: string): Promise<Plan>;
+  updatePlan(idOrCode: string, params: UpdatePlanParams): Promise<Plan>;
+  cancelPlan(idOrCode: string): Promise<Plan>;
+  createSubscription(params: CreateSubscriptionParams): Promise<Subscription>;
+  listSubscriptions(options?: ListSubscriptionsOptions): Promise<SubscriptionList>;
+  fetchSubscription(idOrCode: string): Promise<Subscription>;
+  cancelSubscription(
+    idOrCode: string,
+    params?: SubscriptionActionParams,
+  ): Promise<Subscription>;
+  enableSubscription(
+    idOrCode: string,
+    params?: SubscriptionActionParams,
+  ): Promise<Subscription>;
   constructWebhookEvent(rawBody: string, signature: string): WebhookEvent;
 }
 
@@ -571,6 +587,40 @@ export interface PayClient {
   listTransactions(options?: ListTransactionsOptions): Promise<TransactionList>;
   /** Create a connected subaccount for marketplace splits. Returns its `id`. */
   createSubaccount(params: CreateSubaccountParams): Promise<Subaccount>;
+  /** Create a billing plan for subscriptions. Returns the plan `id`. */
+  createPlan(params: CreatePlanParams): Promise<Plan>;
+  /** List billing plans (paginated). */
+  listPlans(options?: ListPlansOptions): Promise<PlanList>;
+  /** Fetch a plan by its id/code. */
+  fetchPlan(idOrCode: string): Promise<Plan>;
+  /** Update a plan's price, interval, or billing details. */
+  updatePlan(idOrCode: string, params: UpdatePlanParams): Promise<Plan>;
+  /**
+   * Cancel a plan and its subscriptions. Flutterwave-only - Paystack has no
+   * cancel endpoint (update the plan or disable its subscriptions instead)
+   * and throws code `"unsupported"`.
+   */
+  cancelPlan(idOrCode: string): Promise<Plan>;
+  /**
+   * Subscribe a customer to a plan. Paystack-only - on Flutterwave,
+   * subscriptions start with a charge carrying the plan, so call
+   * `initialize({ plan })` there instead.
+   */
+  createSubscription(params: CreateSubscriptionParams): Promise<Subscription>;
+  /** List subscriptions (paginated). */
+  listSubscriptions(options?: ListSubscriptionsOptions): Promise<SubscriptionList>;
+  /** Fetch a subscription by its id/code. */
+  fetchSubscription(idOrCode: string): Promise<Subscription>;
+  /** Cancel a subscription (Paystack needs its `email_token`). */
+  cancelSubscription(
+    idOrCode: string,
+    params?: SubscriptionActionParams,
+  ): Promise<Subscription>;
+  /** Re-enable a cancelled subscription (Paystack needs its `email_token`). */
+  enableSubscription(
+    idOrCode: string,
+    params?: SubscriptionActionParams,
+  ): Promise<Subscription>;
   webhooks: {
     /**
      * Verify a raw webhook body against its signature header and return a
@@ -657,6 +707,44 @@ export interface FallbackClient {
     provider: ProviderName,
     params: CreateSubaccountParams,
   ): Promise<Subaccount>;
+  /** Create a billing plan on a specific provider. */
+  createPlan(provider: ProviderName, params: CreatePlanParams): Promise<Plan>;
+  /** List a specific provider's billing plans. */
+  listPlans(provider: ProviderName, options?: ListPlansOptions): Promise<PlanList>;
+  /** Fetch a plan on the provider it was created on. */
+  fetchPlan(provider: ProviderName, idOrCode: string): Promise<Plan>;
+  /** Update a plan on the provider it was created on. */
+  updatePlan(
+    provider: ProviderName,
+    idOrCode: string,
+    params: UpdatePlanParams,
+  ): Promise<Plan>;
+  /** Cancel a plan (Flutterwave; throws `unsupported` on Paystack). */
+  cancelPlan(provider: ProviderName, idOrCode: string): Promise<Plan>;
+  /** Subscribe a customer on a specific provider (Paystack). */
+  createSubscription(
+    provider: ProviderName,
+    params: CreateSubscriptionParams,
+  ): Promise<Subscription>;
+  /** List a specific provider's subscriptions. */
+  listSubscriptions(
+    provider: ProviderName,
+    options?: ListSubscriptionsOptions,
+  ): Promise<SubscriptionList>;
+  /** Fetch a subscription on the provider it was created on. */
+  fetchSubscription(provider: ProviderName, idOrCode: string): Promise<Subscription>;
+  /** Cancel a subscription on the provider it was created on. */
+  cancelSubscription(
+    provider: ProviderName,
+    idOrCode: string,
+    params?: SubscriptionActionParams,
+  ): Promise<Subscription>;
+  /** Re-enable a cancelled subscription. */
+  enableSubscription(
+    provider: ProviderName,
+    idOrCode: string,
+    params?: SubscriptionActionParams,
+  ): Promise<Subscription>;
   webhooks: {
     construct(provider: ProviderName, rawBody: string, signature: string): WebhookEvent;
   };

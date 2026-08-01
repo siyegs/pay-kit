@@ -3,13 +3,19 @@ import { providerRequest, safeEqual } from "../internal";
 import type {
   Bank,
   ChargeAuthorizationParams,
+  CreatePlanParams,
   CreateSubaccountParams,
+  CreateSubscriptionParams,
   InitializeParams,
   InitializeResult,
   ListBanksOptions,
+  ListPlansOptions,
+  ListSubscriptionsOptions,
   ListTransactionsOptions,
   PaymentProvider,
   PaymentStatus,
+  Plan,
+  PlanList,
   ProviderBalance,
   ProviderContext,
   RefundOptions,
@@ -18,10 +24,13 @@ import type {
   ResolveAccountParams,
   ResolvedAccount,
   Subaccount,
+  Subscription,
+  SubscriptionList,
   TransactionList,
   TransferParams,
   TransferResult,
   TransferStatus,
+  UpdatePlanParams,
   VerifyResult,
   WebhookEvent,
   WebhookEventType,
@@ -95,6 +104,59 @@ function mapTransferStatus(raw: unknown): TransferStatus {
   }
 }
 
+/** Canonical intervals -> Flutterwave's names (`biannually` is `bi-annually` there). */
+const PLAN_INTERVALS: Record<string, string> = {
+  biannually: "bi-annually",
+};
+
+function toFlutterwaveInterval(interval: string): string {
+  return PLAN_INTERVALS[interval] ?? interval;
+}
+
+/** Flutterwave keys plans by a numeric id - validate before sending. */
+function toFlutterwavePlanId(plan: string): number {
+  const id = Number(plan);
+  if (!Number.isFinite(id)) {
+    throw new PayKitError(
+      "Flutterwave `plan` must be the numeric payment plan id returned by createPlan",
+      { code: "config_error", provider: "flutterwave" },
+    );
+  }
+  return id;
+}
+
+function mapPlan(data: Record<string, unknown>): Plan {
+  return {
+    id: data.id !== undefined ? String(data.id) : "",
+    name: String(data.name ?? ""),
+    amount: data.amount !== undefined ? toSubunits(data.amount) : undefined,
+    interval: data.interval ? String(data.interval) : undefined,
+    currency: data.currency ? String(data.currency) : undefined,
+    status: data.status ? String(data.status) : undefined,
+    duration: data.duration !== undefined ? Number(data.duration) : undefined,
+    raw: data,
+  };
+}
+
+function mapSubscription(data: Record<string, unknown>): Subscription {
+  const customer = (data.customer ?? {}) as Record<string, unknown>;
+  const plan = (data.payment_plan ?? data.plan ?? {}) as Record<string, unknown>;
+  return {
+    id: data.id !== undefined ? String(data.id) : "",
+    customer: customer.email ? String(customer.email) : undefined,
+    plan:
+      plan.id !== undefined
+        ? String(plan.id)
+        : plan.name
+          ? String(plan.name)
+          : undefined,
+    status: data.status ? String(data.status) : undefined,
+    nextPaymentDate: data.next_payment_date ? String(data.next_payment_date) : undefined,
+    createdAt: data.created_at ? String(data.created_at) : undefined,
+    raw: data,
+  };
+}
+
 export function createFlutterwaveProvider(ctx: ProviderContext): PaymentProvider {
   const base = ctx.baseUrl ?? FLUTTERWAVE_BASE;
 
@@ -136,6 +198,7 @@ export function createFlutterwaveProvider(ctx: ProviderContext): PaymentProvider
                 ],
               }
             : {}),
+          ...(params.plan !== undefined ? { payment_plan: toFlutterwavePlanId(params.plan) } : {}),
         }),
       });
 
@@ -408,6 +471,150 @@ export function createFlutterwaveProvider(ctx: ProviderContext): PaymentProvider
         bankCode: params.bankCode,
         raw: body,
       };
+    },
+
+    async createPlan(params: CreatePlanParams): Promise<Plan> {
+      const body = await providerRequest(ctx, "flutterwave", `${base}/v3/payment-plans`, {
+        method: "POST",
+        body: JSON.stringify({
+          name: params.name,
+          // Flutterwave takes major units - and the amount is optional there
+          // (dynamic amounts per customer at charge time).
+          ...(params.amount !== undefined ? { amount: toMajor(params.amount) } : {}),
+          interval: toFlutterwaveInterval(params.interval),
+          currency: params.currency ?? "NGN",
+          duration: params.duration,
+        }),
+      });
+      return mapPlan((body.data ?? {}) as Record<string, unknown>);
+    },
+
+    async listPlans(options?: ListPlansOptions): Promise<PlanList> {
+      const query = new URLSearchParams();
+      if (options?.page) query.set("page", String(options.page));
+      if (options?.perPage) query.set("per_page", String(options.perPage));
+      if (options?.status) query.set("status", options.status);
+      const suffix = query.toString() ? `?${query}` : "";
+      const body = await providerRequest(
+        ctx,
+        "flutterwave",
+        `${base}/v3/payment-plans${suffix}`,
+        { method: "GET" },
+      );
+
+      const data = (body.data ?? {}) as Record<string, unknown>;
+      const list = Array.isArray(data)
+        ? data
+        : Array.isArray(data.payment_plans)
+          ? data.payment_plans
+          : [];
+      return {
+        plans: list.map((entry) => mapPlan((entry ?? {}) as Record<string, unknown>)),
+        page: typeof data.page === "number" ? data.page : options?.page,
+        raw: body,
+      };
+    },
+
+    async fetchPlan(idOrCode: string): Promise<Plan> {
+      const body = await providerRequest(
+        ctx,
+        "flutterwave",
+        `${base}/v3/payment-plans/${encodeURIComponent(idOrCode)}`,
+        { method: "GET" },
+      );
+      return mapPlan((body.data ?? {}) as Record<string, unknown>);
+    },
+
+    async updatePlan(idOrCode: string, params: UpdatePlanParams): Promise<Plan> {
+      const body = await providerRequest(
+        ctx,
+        "flutterwave",
+        `${base}/v3/payment-plans/${encodeURIComponent(idOrCode)}`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            name: params.name,
+            ...(params.amount !== undefined ? { amount: toMajor(params.amount) } : {}),
+            duration: params.duration,
+          }),
+        },
+      );
+      return mapPlan((body.data ?? {}) as Record<string, unknown>);
+    },
+
+    async cancelPlan(idOrCode: string): Promise<Plan> {
+      const body = await providerRequest(
+        ctx,
+        "flutterwave",
+        `${base}/v3/payment-plans/${encodeURIComponent(idOrCode)}/cancel`,
+        { method: "PUT" },
+      );
+      return mapPlan((body.data ?? {}) as Record<string, unknown>);
+    },
+
+    async createSubscription(_params: CreateSubscriptionParams): Promise<Subscription> {
+      throw new PayKitError(
+        "Flutterwave creates subscriptions automatically when a charge carries a plan - pass `plan` to initialize() instead",
+        { code: "unsupported", provider: "flutterwave" },
+      );
+    },
+
+    async listSubscriptions(options?: ListSubscriptionsOptions): Promise<SubscriptionList> {
+      const query = new URLSearchParams();
+      if (options?.page) query.set("page", String(options.page));
+      if (options?.perPage) query.set("per_page", String(options.perPage));
+      if (options?.plan) query.set("plan", options.plan);
+      const suffix = query.toString() ? `?${query}` : "";
+      const body = await providerRequest(
+        ctx,
+        "flutterwave",
+        `${base}/v3/subscriptions${suffix}`,
+        { method: "GET" },
+      );
+
+      const data = (body.data ?? {}) as Record<string, unknown>;
+      const list = Array.isArray(data)
+        ? data
+        : Array.isArray(data.subscriptions)
+          ? data.subscriptions
+          : [];
+      return {
+        subscriptions: list.map((entry) =>
+          mapSubscription((entry ?? {}) as Record<string, unknown>),
+        ),
+        page: typeof data.page === "number" ? data.page : options?.page,
+        raw: body,
+      };
+    },
+
+    async fetchSubscription(idOrCode: string): Promise<Subscription> {
+      const body = await providerRequest(
+        ctx,
+        "flutterwave",
+        `${base}/v3/subscriptions/${encodeURIComponent(idOrCode)}`,
+        { method: "GET" },
+      );
+      return mapSubscription((body.data ?? {}) as Record<string, unknown>);
+    },
+
+    async cancelSubscription(idOrCode: string): Promise<Subscription> {
+      const body = await providerRequest(
+        ctx,
+        "flutterwave",
+        `${base}/v3/subscriptions/${encodeURIComponent(idOrCode)}/cancel`,
+        { method: "PUT" },
+      );
+      return mapSubscription((body.data ?? {}) as Record<string, unknown>);
+    },
+
+    async enableSubscription(idOrCode: string): Promise<Subscription> {
+      const body = await providerRequest(
+        ctx,
+        "flutterwave",
+        `${base}/v3/subscriptions/${encodeURIComponent(idOrCode)}/activate`,
+        { method: "PUT" },
+      );
+      return mapSubscription((body.data ?? {}) as Record<string, unknown>);
     },
 
     constructWebhookEvent(rawBody: string, signature: string): WebhookEvent {

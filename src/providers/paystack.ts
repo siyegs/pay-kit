@@ -4,13 +4,19 @@ import { providerRequest, safeEqual } from "../internal";
 import type {
   Bank,
   ChargeAuthorizationParams,
+  CreatePlanParams,
   CreateSubaccountParams,
+  CreateSubscriptionParams,
   InitializeParams,
   InitializeResult,
   ListBanksOptions,
+  ListPlansOptions,
+  ListSubscriptionsOptions,
   ListTransactionsOptions,
   PaymentProvider,
   PaymentStatus,
+  Plan,
+  PlanList,
   ProviderBalance,
   ProviderContext,
   RefundOptions,
@@ -19,10 +25,14 @@ import type {
   ResolveAccountParams,
   ResolvedAccount,
   Subaccount,
+  Subscription,
+  SubscriptionActionParams,
+  SubscriptionList,
   TransactionList,
   TransferParams,
   TransferResult,
   TransferStatus,
+  UpdatePlanParams,
   VerifyResult,
   WebhookEvent,
   WebhookEventType,
@@ -86,6 +96,60 @@ function mapRefundStatus(raw: unknown): RefundStatus {
   }
 }
 
+/** Canonical intervals -> Paystack's names (`yearly` is `annually` there). */
+const PLAN_INTERVALS: Record<string, string> = {
+  yearly: "annually",
+};
+
+function toPaystackInterval(interval: string): string {
+  return PLAN_INTERVALS[interval] ?? interval;
+}
+
+function mapPlan(data: Record<string, unknown>): Plan {
+  return {
+    id: String(data.plan_code ?? ""),
+    name: String(data.name ?? ""),
+    amount: data.amount !== undefined ? Number(data.amount) : undefined,
+    interval: data.interval ? String(data.interval) : undefined,
+    currency: data.currency ? String(data.currency) : undefined,
+    status: data.status ? String(data.status) : undefined,
+    raw: data,
+  };
+}
+
+function mapSubscription(data: Record<string, unknown>): Subscription {
+  return {
+    id: String(data.subscription_code ?? data.id ?? ""),
+    customer: data.customer ? String(data.customer) : undefined,
+    plan: data.plan ? String(data.plan) : undefined,
+    status: data.status ? String(data.status) : undefined,
+    nextPaymentDate: data.next_payment_date ? String(data.next_payment_date) : undefined,
+    emailToken: data.email_token ? String(data.email_token) : undefined,
+    createdAt: data.created_at ? String(data.created_at) : undefined,
+    raw: data,
+  };
+}
+
+/** Enable/disable a Paystack subscription - both need the email token. */
+async function subscriptionAction(
+  ctx: ProviderContext,
+  base: string,
+  action: "enable" | "disable",
+  idOrCode: string,
+  params?: SubscriptionActionParams,
+): Promise<Record<string, unknown>> {
+  if (!params?.token) {
+    throw new PayKitError(
+      `Paystack subscription ${action} requires the email \`token\` returned by createSubscription`,
+      { code: "config_error", provider: "paystack" },
+    );
+  }
+  return providerRequest(ctx, "paystack", `${base}/subscription/${action}`, {
+    method: "POST",
+    body: JSON.stringify({ code: idOrCode, token: params.token }),
+  });
+}
+
 export function createPaystackProvider(ctx: ProviderContext): PaymentProvider {
   const base = ctx.baseUrl ?? PAYSTACK_BASE;
 
@@ -112,6 +176,7 @@ export function createPaystackProvider(ctx: ProviderContext): PaymentProvider {
                 ...(params.split.bearer ? { bearer: params.split.bearer } : {}),
               }
             : {}),
+          ...(params.plan ? { plan: params.plan } : {}),
         }),
       });
 
@@ -374,6 +439,155 @@ export function createPaystackProvider(ctx: ProviderContext): PaymentProvider {
         bankCode: params.bankCode,
         raw: body,
       };
+    },
+
+    async createPlan(params: CreatePlanParams): Promise<Plan> {
+      if (params.amount === undefined) {
+        throw new PayKitError("Paystack `createPlan` requires `amount` (in subunits)", {
+          code: "config_error",
+          provider: "paystack",
+        });
+      }
+      const body = await providerRequest(ctx, "paystack", `${base}/plan`, {
+        method: "POST",
+        body: JSON.stringify({
+          name: params.name,
+          amount: params.amount,
+          interval: toPaystackInterval(params.interval),
+          description: params.description,
+          currency: params.currency ?? "NGN",
+          send_invoices: params.sendInvoices,
+          send_sms: params.sendSms,
+          invoice_limit: params.invoiceLimit,
+          metadata: params.metadata,
+        }),
+      });
+      return mapPlan((body.data ?? {}) as Record<string, unknown>);
+    },
+
+    async listPlans(options?: ListPlansOptions): Promise<PlanList> {
+      const query = new URLSearchParams();
+      if (options?.perPage) query.set("perPage", String(options.perPage));
+      if (options?.page) query.set("page", String(options.page));
+      if (options?.status) query.set("status", options.status);
+      if (options?.currency) query.set("currency", options.currency);
+      const suffix = query.toString() ? `?${query}` : "";
+      const body = await providerRequest(ctx, "paystack", `${base}/plan${suffix}`, {
+        method: "GET",
+      });
+
+      const list = Array.isArray(body.data) ? body.data : [];
+      const meta = (body.meta ?? {}) as Record<string, unknown>;
+      return {
+        plans: list.map((entry) => mapPlan((entry ?? {}) as Record<string, unknown>)),
+        page: meta.page !== undefined ? Number(meta.page) : options?.page,
+        raw: body,
+      };
+    },
+
+    async fetchPlan(idOrCode: string): Promise<Plan> {
+      const body = await providerRequest(
+        ctx,
+        "paystack",
+        `${base}/plan/${encodeURIComponent(idOrCode)}`,
+        { method: "GET" },
+      );
+      return mapPlan((body.data ?? {}) as Record<string, unknown>);
+    },
+
+    async updatePlan(idOrCode: string, params: UpdatePlanParams): Promise<Plan> {
+      const body = await providerRequest(
+        ctx,
+        "paystack",
+        `${base}/plan/${encodeURIComponent(idOrCode)}`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            name: params.name,
+            amount: params.amount,
+            interval:
+              params.interval !== undefined
+                ? toPaystackInterval(params.interval)
+                : undefined,
+            description: params.description,
+            currency: params.currency,
+            send_invoices: params.sendInvoices,
+            send_sms: params.sendSms,
+            invoice_limit: params.invoiceLimit,
+          }),
+        },
+      );
+      return mapPlan((body.data ?? {}) as Record<string, unknown>);
+    },
+
+    async cancelPlan(_idOrCode: string): Promise<Plan> {
+      throw new PayKitError(
+        "Paystack has no cancel-plan endpoint - update the plan or disable its subscriptions instead",
+        { code: "unsupported", provider: "paystack" },
+      );
+    },
+
+    async createSubscription(params: CreateSubscriptionParams): Promise<Subscription> {
+      const body = await providerRequest(ctx, "paystack", `${base}/subscription`, {
+        method: "POST",
+        body: JSON.stringify({
+          customer: params.customer,
+          plan: params.plan,
+          authorization: params.authorization,
+          start_date: params.startDate,
+          end_date: params.endDate,
+        }),
+      });
+      return mapSubscription((body.data ?? {}) as Record<string, unknown>);
+    },
+
+    async listSubscriptions(options?: ListSubscriptionsOptions): Promise<SubscriptionList> {
+      const query = new URLSearchParams();
+      if (options?.perPage) query.set("perPage", String(options.perPage));
+      if (options?.page) query.set("page", String(options.page));
+      if (options?.plan) query.set("plan", options.plan);
+      if (options?.customer) query.set("customer", options.customer);
+      if (options?.status) query.set("status", options.status);
+      const suffix = query.toString() ? `?${query}` : "";
+      const body = await providerRequest(ctx, "paystack", `${base}/subscription${suffix}`, {
+        method: "GET",
+      });
+
+      const list = Array.isArray(body.data) ? body.data : [];
+      const meta = (body.meta ?? {}) as Record<string, unknown>;
+      return {
+        subscriptions: list.map((entry) =>
+          mapSubscription((entry ?? {}) as Record<string, unknown>),
+        ),
+        page: meta.page !== undefined ? Number(meta.page) : options?.page,
+        raw: body,
+      };
+    },
+
+    async fetchSubscription(idOrCode: string): Promise<Subscription> {
+      const body = await providerRequest(
+        ctx,
+        "paystack",
+        `${base}/subscription/${encodeURIComponent(idOrCode)}`,
+        { method: "GET" },
+      );
+      return mapSubscription((body.data ?? {}) as Record<string, unknown>);
+    },
+
+    async cancelSubscription(
+      idOrCode: string,
+      params?: SubscriptionActionParams,
+    ): Promise<Subscription> {
+      const body = await subscriptionAction(ctx, base, "disable", idOrCode, params);
+      return { id: idOrCode, status: "cancelled", raw: body };
+    },
+
+    async enableSubscription(
+      idOrCode: string,
+      params?: SubscriptionActionParams,
+    ): Promise<Subscription> {
+      const body = await subscriptionAction(ctx, base, "enable", idOrCode, params);
+      return { id: idOrCode, status: "active", raw: body };
     },
 
     constructWebhookEvent(rawBody: string, signature: string): WebhookEvent {

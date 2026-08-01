@@ -2,13 +2,19 @@ import { PayKitError } from "../errors";
 import type {
   Bank,
   ChargeAuthorizationParams,
+  CreatePlanParams,
   CreateSubaccountParams,
+  CreateSubscriptionParams,
   InitializeParams,
   InitializeResult,
   ListBanksOptions,
+  ListPlansOptions,
+  ListSubscriptionsOptions,
   ListTransactionsOptions,
   PaymentProvider,
   PaymentStatus,
+  Plan,
+  PlanList,
   ProviderBalance,
   ProviderContext,
   RefundOptions,
@@ -16,9 +22,12 @@ import type {
   ResolveAccountParams,
   ResolvedAccount,
   Subaccount,
+  Subscription,
+  SubscriptionList,
   TransactionList,
   TransferParams,
   TransferResult,
+  UpdatePlanParams,
   VerifyResult,
   WebhookEvent,
   WebhookEventType,
@@ -52,6 +61,32 @@ interface StoredCharge {
 export function createMockProvider(ctx: ProviderContext): PaymentProvider {
   const charges = new Map<string, StoredCharge>();
   const transfers = new Map<string, TransferResult>();
+  const plans = new Map<string, Plan>();
+  const subscriptions = new Map<string, Subscription>();
+  let planSeq = 0;
+  let subSeq = 0;
+
+  function requirePlan(idOrCode: string): Plan {
+    const plan = plans.get(idOrCode);
+    if (!plan) {
+      throw new PayKitError(`Mock plan "${idOrCode}" not found - create it first`, {
+        code: "provider_error",
+        provider: "mock",
+      });
+    }
+    return plan;
+  }
+
+  function requireSubscription(idOrCode: string): Subscription {
+    const sub = subscriptions.get(idOrCode);
+    if (!sub) {
+      throw new PayKitError(`Mock subscription "${idOrCode}" not found`, {
+        code: "provider_error",
+        provider: "mock",
+      });
+    }
+    return sub;
+  }
 
   return {
     name: "mock",
@@ -192,6 +227,88 @@ export function createMockProvider(ctx: ProviderContext): PaymentProvider {
         bankCode: params.bankCode,
         raw: { mock: true, params },
       };
+    },
+
+    async createPlan(params: CreatePlanParams): Promise<Plan> {
+      const plan: Plan = {
+        id: `mock_plan_${++planSeq}`,
+        name: params.name,
+        amount: params.amount,
+        interval: params.interval,
+        currency: params.currency ?? "NGN",
+        status: "active",
+        duration: params.duration,
+        raw: { mock: true },
+      };
+      plans.set(plan.id, plan);
+      return plan;
+    },
+
+    async listPlans(_options?: ListPlansOptions): Promise<PlanList> {
+      return { plans: [...plans.values()], page: 1, raw: { mock: true } };
+    },
+
+    async fetchPlan(idOrCode: string): Promise<Plan> {
+      return requirePlan(idOrCode);
+    },
+
+    async updatePlan(idOrCode: string, params: UpdatePlanParams): Promise<Plan> {
+      const plan = requirePlan(idOrCode);
+      const next: Plan = {
+        ...plan,
+        ...(params.name !== undefined ? { name: params.name } : {}),
+        ...(params.amount !== undefined ? { amount: params.amount } : {}),
+        ...(params.interval !== undefined ? { interval: params.interval } : {}),
+        ...(params.currency !== undefined ? { currency: params.currency } : {}),
+        ...(params.duration !== undefined ? { duration: params.duration } : {}),
+        raw: { mock: true },
+      };
+      plans.set(idOrCode, next);
+      return next;
+    },
+
+    async cancelPlan(idOrCode: string): Promise<Plan> {
+      const plan = requirePlan(idOrCode);
+      const next: Plan = { ...plan, status: "cancelled", raw: { mock: true } };
+      plans.set(idOrCode, next);
+      return next;
+    },
+
+    async createSubscription(params: CreateSubscriptionParams): Promise<Subscription> {
+      requirePlan(params.plan);
+      const sub: Subscription = {
+        id: `mock_sub_${++subSeq}`,
+        customer: params.customer,
+        plan: params.plan,
+        status: "active",
+        emailToken: `mock_tok_${subSeq}`,
+        createdAt: new Date().toISOString(),
+        raw: { mock: true },
+      };
+      subscriptions.set(sub.id, sub);
+      return sub;
+    },
+
+    async listSubscriptions(_options?: ListSubscriptionsOptions): Promise<SubscriptionList> {
+      return { subscriptions: [...subscriptions.values()], page: 1, raw: { mock: true } };
+    },
+
+    async fetchSubscription(idOrCode: string): Promise<Subscription> {
+      return requireSubscription(idOrCode);
+    },
+
+    async cancelSubscription(idOrCode: string): Promise<Subscription> {
+      const sub = requireSubscription(idOrCode);
+      const next: Subscription = { ...sub, status: "cancelled", raw: { mock: true } };
+      subscriptions.set(idOrCode, next);
+      return next;
+    },
+
+    async enableSubscription(idOrCode: string): Promise<Subscription> {
+      const sub = requireSubscription(idOrCode);
+      const next: Subscription = { ...sub, status: "active", raw: { mock: true } };
+      subscriptions.set(idOrCode, next);
+      return next;
     },
 
     constructWebhookEvent(rawBody: string, signature: string): WebhookEvent {

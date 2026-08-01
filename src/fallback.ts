@@ -112,6 +112,30 @@ export function createFallbackClient(config: FallbackClientConfig): FallbackClie
 
     createSubaccount: (provider, params) => getClient(provider).createSubaccount(params),
 
+    // Plans and subscriptions live on the provider they were created on.
+    createPlan: (provider, params) => getClient(provider).createPlan(params),
+
+    listPlans: (provider, options) => getClient(provider).listPlans(options),
+
+    fetchPlan: (provider, idOrCode) => getClient(provider).fetchPlan(idOrCode),
+
+    updatePlan: (provider, idOrCode, params) =>
+      getClient(provider).updatePlan(idOrCode, params),
+
+    cancelPlan: (provider, idOrCode) => getClient(provider).cancelPlan(idOrCode),
+
+    createSubscription: (provider, params) => getClient(provider).createSubscription(params),
+
+    listSubscriptions: (provider, options) => getClient(provider).listSubscriptions(options),
+
+    fetchSubscription: (provider, idOrCode) => getClient(provider).fetchSubscription(idOrCode),
+
+    cancelSubscription: (provider, idOrCode, params) =>
+      getClient(provider).cancelSubscription(idOrCode, params),
+
+    enableSubscription: (provider, idOrCode, params) =>
+      getClient(provider).enableSubscription(idOrCode, params),
+
     webhooks: {
       construct: (provider, rawBody, signature) =>
         getClient(provider).webhooks.construct(rawBody, signature),
