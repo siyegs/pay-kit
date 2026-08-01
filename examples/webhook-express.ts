@@ -1,13 +1,14 @@
 /**
- * Verifying a webhook in an Express handler (illustrative - needs `express`
- * and a real secret key / webhook secret).
+ * Verifying a webhook in Express with the `@siyegs/pay-kit/express` adapter
+ * (illustrative - needs `express` and a real secret key / webhook secret).
  *
- * The critical detail: pass the RAW request body to `construct`, not a parsed
- * and re-serialized object, or signature verification will fail. Use
- * `express.raw()` for the webhook route.
+ * The adapter collects the RAW request bytes itself, so the signature stays
+ * valid - no `express.raw()` needed, and no JSON body parser on this route
+ * (a parsed-and-re-serialized body would break verification).
  */
 import express from "express";
-import { createPayClient, PayKitError } from "../src";
+import { createPayClient } from "../src";
+import { webhookMiddleware } from "../src/adapters/express";
 
 const pay = createPayClient({
   provider: "paystack",
@@ -17,26 +18,17 @@ const pay = createPayClient({
 
 const app = express();
 
-app.post("/webhooks/pay", express.raw({ type: "*/*" }), (req, res) => {
-  // Paystack signs with `x-paystack-signature`; Flutterwave sends `verif-hash`.
-  const signature =
-    (req.headers["x-paystack-signature"] as string) ??
-    (req.headers["verif-hash"] as string) ??
-    "";
-
-  try {
-    const event = pay.webhooks.construct(req.body.toString(), signature);
-    // event is normalized: { type, reference, status?, amount?, currency?, raw }
-    if (event.type === "charge.success") {
-      // mark the order paid, idempotently keyed on event.reference
-    }
-    res.sendStatus(200);
-  } catch (err) {
-    if (err instanceof PayKitError && err.code === "invalid_signature") {
-      return res.sendStatus(401);
-    }
-    res.sendStatus(400);
-  }
-});
+app.post(
+  "/webhooks/pay",
+  webhookMiddleware(pay, {
+    onEvent: async (event) => {
+      // event is normalized: { type, reference, status?, amount?, currency?, raw }
+      if (event.type === "charge.success") {
+        // mark the order paid, idempotently keyed on event.reference
+      }
+    },
+    onError: (err) => console.error("webhook rejected", err),
+  }),
+);
 
 app.listen(3000);

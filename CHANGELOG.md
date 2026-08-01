@@ -6,6 +6,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- **Express / Hono / Fastify webhook adapters.** `@siyegs/pay-kit/express`
+  (`webhookMiddleware`), `@siyegs/pay-kit/hono` (`webhookHandler`), and
+  `@siyegs/pay-kit/fastify` (`webhookPlugin`) all read the raw request bytes
+  themselves (the signature footgun), verify, dispatch the normalized event,
+  and reply 401/400/500/200 - with zero dependencies on the frameworks at
+  runtime (structural typing only, like the existing `/next` and `/nestjs`
+  subpaths). The Fastify plugin registers its catch-all raw-body parser in an
+  encapsulated plugin scope so other routes keep default parsing. Each adapter
+  also exports a `constructWebhookFromRequest`-style helper.
+
 ## [0.10.1] - 2026-07-26
 
 ### Fixed

@@ -138,6 +138,42 @@ export const POST = webhookRoute(pay, {
 
 Prefer to verify yourself? `constructWebhookFromRequest(pay, request)` returns the normalized event (or throws `invalid_signature`). See [`examples/webhook-next.ts`](./examples/webhook-next.ts).
 
+### Express / Hono / Fastify
+
+Dedicated adapters for the common Node frameworks - each one reads the **raw** request bytes itself (the signature footgun), verifies, dispatches the normalized event, and replies `401` bad signature / `400` malformed / `500` handler threw (provider retries) / `200` ok. They add **zero dependencies** - the returned middleware/handler/plugin is plain code your framework runs; install the framework alongside.
+
+**Express** - `@siyegs/pay-kit/express`. Mount the middleware on the webhook route - no `express.raw()` needed, and no JSON body parser on this route:
+
+```ts
+import { webhookMiddleware } from "@siyegs/pay-kit/express";
+
+app.post("/webhooks/pay", webhookMiddleware(pay, {
+  onEvent: async (event) => {
+    if (event.type === "charge.success") { /* fulfil the order, idempotently */ }
+  },
+}));
+```
+
+**Hono** - `@siyegs/pay-kit/hono`. Returns a handler you pass as the route handler; it reads Hono's underlying raw request (`c.req.raw`) for you:
+
+```ts
+import { webhookHandler } from "@siyegs/pay-kit/hono";
+
+const app = new Hono();
+app.post("/webhooks/pay", webhookHandler(pay, { onEvent }));
+```
+
+**Fastify** - `@siyegs/pay-kit/fastify`. A plugin that registers a catch-all content-type parser (`parseAs: "string"`) and the route inside one **encapsulated scope**, so your other routes keep Fastify's default body parsing:
+
+```ts
+import { webhookPlugin } from "@siyegs/pay-kit/fastify";
+
+const app = Fastify();
+app.register(webhookPlugin(pay, { path: "/webhooks/pay", onEvent }));
+```
+
+All three also export a `constructWebhookFromRequest`-style helper if you prefer to verify and handle the response yourself. See [`examples/webhook-express.ts`](./examples/webhook-express.ts), [`examples/webhook-hono.ts`](./examples/webhook-hono.ts), and [`examples/webhook-fastify.ts`](./examples/webhook-fastify.ts).
+
 ## Provider fallback
 
 Try one provider, automatically fall through to the next when it is unreachable - so a Paystack outage doesn't stop you taking money.
@@ -403,13 +439,14 @@ Bank codes are **provider-specific**, so list and resolve against the same provi
 - [x] Typed webhook events (discriminated union + type guards)
 - [x] Web / Next.js webhook route adapter (`@siyegs/pay-kit/next`, works in any Fetch-API runtime)
 - [x] NestJS module adapter (`@siyegs/pay-kit/nestjs`)
+- [x] Express / Hono / Fastify webhook adapters (`@siyegs/pay-kit/express`, `/hono`, `/fastify`)
 - [ ] Plans & subscriptions
 
 ## Status
 
 pay-kit is **beta (pre-1.0)**. Here is exactly what is and is not verified:
 
-- **Unit-tested:** TypeScript types compile, the package builds (ESM + CJS + `.d.ts`), and a full unit-test suite passes (mocked `fetch`). The mock provider is exercised directly.
+- **Unit-tested:** TypeScript types compile, the package builds (ESM + CJS + `.d.ts`), and a full unit-test suite passes (mocked `fetch`), including the Next/NestJS/Express/Hono/Fastify webhook adapters. The mock provider is exercised directly.
 - **Live-sandbox verified (both providers):** `initialize`, `verify`, `resolveAccount`, `listBanks`, `getBalances`, `listTransactions`, `refund`, `chargeAuthorization`, and signature-verified webhooks have all been run successfully against the real Paystack and Flutterwave test sandboxes. Two bugs were caught and fixed this way: `initialize` and `chargeAuthorization` both require a redirect URL on Flutterwave (`callbackUrl`), which the SDK previously omitted. Webhook checks confirm a valid signature is accepted, a tampered one is rejected, and the amount is normalized to subunits on both providers - and both are additionally verified against an **actual live delivery** captured from the dashboard (via `scripts/webhook-live.ts`). Real-delivery testing caught a third bug: Flutterwave ships a flat legacy webhook payload the parser didn't handle, now fixed.
 - **Live-sandbox verified (Flutterwave):** `createSubaccount` creates a real subaccount, and a charge carrying that subaccount as a `split` is accepted by the live API - so the subaccount + split mapping is verified end to end on Flutterwave. On Paystack both are request-correct but account-gated (see below).
 - **Request-validated but account-gated:** `transfer`, `verifyTransfer`, and Paystack `createSubaccount` reach the provider and pass request validation (and Flutterwave IP whitelisting), but completing them requires a transfer-enabled merchant account and a resolvable settlement account - the test account does not have one, so Paystack rejects with "Account details are invalid" / "cannot resolve account". Paystack `splits` is unit-tested only (it needs a created subaccount to attach).

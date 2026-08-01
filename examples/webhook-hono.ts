@@ -1,33 +1,34 @@
 /**
- * The same `@siyegs/pay-kit/next` webhook adapter in Hono (illustrative - needs
- * `hono`). Nothing about it is Next-specific: `webhookRoute` returns a plain
- * `(request: Request) => Promise<Response>`, so any Web-standard runtime can use
- * it. Here Hono hands it the raw request via `c.req.raw`.
+ * Verifying a webhook in Hono with the `@siyegs/pay-kit/hono` adapter
+ * (illustrative - needs `hono` and a real secret key / webhook secret).
  *
- * The identical handler works in Remix (`action`), SvelteKit (`+server.ts`),
- * Cloudflare Workers, Deno, and Bun.
+ * `webhookHandler` reads Hono's underlying raw request (`c.req.raw`) itself,
+ * so the signature stays valid, and returns a plain `Response` Hono serves
+ * directly. Replies: 401 bad signature, 400 malformed, 500 handler threw
+ * (provider retries), 200 ok.
  */
 import { Hono } from "hono";
 import { createPayClient } from "../src";
-import { webhookRoute } from "../src/adapters/next";
+import { webhookHandler } from "../src/adapters/hono";
 
 const pay = createPayClient({
   provider: "paystack",
   secretKey: process.env.PAYSTACK_SECRET_KEY!,
-});
-
-const handlePayWebhook = webhookRoute(pay, {
-  onEvent: async (event) => {
-    if (event.type === "charge.success") {
-      // fulfil the order, idempotently keyed on event.reference
-    }
-  },
+  // For Flutterwave, also pass webhookSecret: process.env.FLW_HASH
 });
 
 const app = new Hono();
 
-// Pass Hono's underlying Web Request straight through - the adapter reads the
-// raw body itself, so the signature stays valid.
-app.post("/webhooks/pay", (c) => handlePayWebhook(c.req.raw));
+app.post(
+  "/webhooks/pay",
+  webhookHandler(pay, {
+    onEvent: async (event) => {
+      // event is normalized: { type, reference, status?, amount?, currency?, raw }
+      if (event.type === "charge.success") {
+        // mark the order paid, idempotently keyed on event.reference
+      }
+    },
+  }),
+);
 
 export default app;
