@@ -13,6 +13,10 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noUncheckedIndexedAccess": true,
+    // Dev/test only: the real-framework NestJS tests use Nest decorators.
+    // pay-kit's own source is decorator-free - consumers need no such build.
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
     "outDir": "dist"
   },
   "include": ["src"],
