@@ -60,7 +60,7 @@ export interface FastifyReplyLike {
 /** The minimal Fastify instance surface the plugin needs. */
 export interface FastifyLike {
   addContentTypeParser(
-    contentType: string,
+    contentType: string | string[],
     opts: { parseAs: "string" },
     parser: (request: unknown, body: string, done: (error: Error | null, value?: string) => void) => void,
   ): unknown;
@@ -88,17 +88,29 @@ export function constructWebhookFromRequest(
  * `500` if your handler throws (so the provider retries), `200` on success.
  *
  * Register it with `app.register(webhookPlugin(pay, { onEvent, path? }))`. The
- * catch-all content-type parser is registered in the plugin's encapsulated
- * scope, so other routes keep Fastify's default body parsing.
+ * raw-body parsers are registered in the plugin's encapsulated scope, so other
+ * routes keep Fastify's default parsing.
+ *
+ * Note: the wildcard content-type parser alone is NOT enough - Fastify's
+ * built-in `application/json` parser wins over a wildcard, so the webhook
+ * body would arrive JSON-parsed and the signature check would fail. The
+ * plugin therefore registers `application/json` (and `text/plain`)
+ * explicitly with `parseAs: "string"` alongside the wildcard fallback.
  */
 export function webhookPlugin(
   client: WebhookVerifier,
   options: WebhookPluginOptions,
 ): (fastify: FastifyLike) => void {
   return (fastify) => {
-    fastify.addContentTypeParser("*/*", { parseAs: "string" }, (_request, body, done) => {
-      done(null, body);
-    });
+    const asString = (
+      _request: unknown,
+      body: string,
+      done: (error: Error | null, value?: string) => void,
+    ) => done(null, body);
+    // Built-ins win over wildcards in Fastify, so list the types providers
+    // actually send explicitly before the catch-all.
+    fastify.addContentTypeParser(["application/json", "text/plain"], { parseAs: "string" }, asString);
+    fastify.addContentTypeParser("*/*", { parseAs: "string" }, asString);
 
     fastify.post(options.path ?? "/webhooks/pay", async (request, reply) => {
       let event: WebhookEvent;

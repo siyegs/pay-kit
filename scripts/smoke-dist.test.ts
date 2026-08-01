@@ -192,11 +192,16 @@ describe("smoke: webhook construct (local, no network)", () => {
     expect(event.reference).toBe("smoke_ref");
   });
 
-  it("Fastify: webhookPlugin registers the catch-all parser and the POST route", () => {
+  it("Fastify: webhookPlugin registers the raw-body parsers and the POST route", () => {
     const fastify = {
       addContentTypeParser: (...args: unknown[]) => {
-        expect(args[0]).toBe("*/*");
-        expect(args[1]).toEqual({ parseAs: "string" });
+        if (Array.isArray(args[0])) {
+          expect(args[0]).toEqual(["application/json", "text/plain"]);
+          expect(args[1]).toEqual({ parseAs: "string" });
+        } else {
+          expect(args[0]).toBe("*/*");
+          expect(args[1]).toEqual({ parseAs: "string" });
+        }
       },
       post: (path: string) => {
         expect(path).toBe("/webhooks/pay");
