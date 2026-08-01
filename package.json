@@ -15,34 +15,61 @@
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "express": ["./dist/express.d.ts"],
+      "hono": ["./dist/hono.d.ts"],
+      "fastify": ["./dist/fastify.d.ts"],
+      "next": ["./dist/next.d.ts"],
+      "nestjs": ["./dist/nestjs.d.ts"]
+    }
+  },
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": {
+        "import": "./dist/index.d.ts",
+        "require": "./dist/index.d.cts"
+      },
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     },
     "./next": {
-      "types": "./dist/next.d.ts",
+      "types": {
+        "import": "./dist/next.d.ts",
+        "require": "./dist/next.d.cts"
+      },
       "import": "./dist/next.js",
       "require": "./dist/next.cjs"
     },
     "./nestjs": {
-      "types": "./dist/nestjs.d.ts",
+      "types": {
+        "import": "./dist/nestjs.d.ts",
+        "require": "./dist/nestjs.d.cts"
+      },
       "import": "./dist/nestjs.js",
       "require": "./dist/nestjs.cjs"
     },
     "./express": {
-      "types": "./dist/express.d.ts",
+      "types": {
+        "import": "./dist/express.d.ts",
+        "require": "./dist/express.d.cts"
+      },
       "import": "./dist/express.js",
       "require": "./dist/express.cjs"
     },
     "./hono": {
-      "types": "./dist/hono.d.ts",
+      "types": {
+        "import": "./dist/hono.d.ts",
+        "require": "./dist/hono.d.cts"
+      },
       "import": "./dist/hono.js",
       "require": "./dist/hono.cjs"
     },
     "./fastify": {
-      "types": "./dist/fastify.d.ts",
+      "types": {
+        "import": "./dist/fastify.d.ts",
+        "require": "./dist/fastify.d.cts"
+      },
       "import": "./dist/fastify.js",
       "require": "./dist/fastify.cjs"
     }
@@ -58,9 +85,12 @@
     "test": "bun test",
     "test:watch": "bun test --watch",
     "test:dist": "bun run build && bun test ./scripts/smoke-dist.test.ts",
+    "test:node": "bun run build && node scripts/node-smoke.cjs && node scripts/node-smoke.mjs",
+    "test:types": "bun run build && attw --pack .",
     "integration": "bun run scripts/integration.ts",
+    "fallback-drill": "bun run scripts/fallback-drill.ts",
     "typecheck": "tsc --noEmit",
-    "prepublishOnly": "bun run typecheck && bun run test && bun run test:dist"
+    "prepublishOnly": "bun run typecheck && bun run test && bun run test:dist && bun run test:node && bun run test:types"
   },
   "keywords": [
     "paystack",
@@ -88,8 +118,14 @@
     "access": "public"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
     "@nestjs/common": "^11.1.28",
+    "@nestjs/testing": "^11.1.28",
     "@types/bun": "^1.1.0",
+    "@types/express": "^5.0.6",
+    "express": "^5.2.1",
+    "fastify": "^5.11.0",
+    "hono": "^4.12.33",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "tsup": "^8.1.0",
