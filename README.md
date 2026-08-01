@@ -8,7 +8,7 @@
 [![types](https://img.shields.io/badge/types-included-3178c6)](./src/types.ts)
 [![status](https://img.shields.io/badge/status-beta-orange)](#status)
 
-> **Status: beta (pre-1.0).** pay-kit is fully typed, unit-tested, and now **verified end to end against the live Paystack and Flutterwave sandboxes** for the core flows - initialize, verify, refund, saved-card charge, subaccount creation, and signature-verified webhooks. Live testing caught and fixed two real bugs. A few methods stay account-gated in test mode (payouts, `verifyTransfer`); the [Status](#status) section says exactly what is and isn't verified. Pin an exact version and test the flows you depend on - the API may still change before 1.0.
+> **Status: beta (pre-1.0).** pay-kit is fully typed, unit-tested (including webhook adapters against real Express/Fastify/Hono/NestJS servers, Node CJS/ESM consumer checks, and published-type validation), and now **verified end to end against the live Paystack and Flutterwave sandboxes** for the core flows - initialize, verify, refund, saved-card charge, subaccount creation, and signature-verified webhooks. Live testing caught and fixed two real bugs. A few methods stay account-gated in test mode (payouts, `verifyTransfer`); the [Status](#status) section says exactly what is and isn't verified. Pin an exact version and test the flows you depend on - the API may still change before 1.0.
 
 Most serious African products integrate **both** Paystack and Flutterwave - for coverage, redundancy, and better rates. But their APIs, webhook signatures, error shapes, and currency units all differ, so teams re-write the same fragile glue every time. `pay-kit` gives you **one typed interface** over both. And unlike a hosted payments gateway, it is a library you own: it runs in your backend and calls the providers directly with your own keys - no third party in your money path, no monthly bill.
 
@@ -509,7 +509,7 @@ Bank codes are **provider-specific**, so list and resolve against the same provi
 
 pay-kit is **beta (pre-1.0)**. Here is exactly what is and is not verified:
 
-- **Unit-tested:** TypeScript types compile, the package builds (ESM + CJS + `.d.ts`), and a full unit-test suite passes (mocked `fetch`), including the Next/NestJS/Express/Hono/Fastify webhook adapters. The mock provider is exercised directly.
+- **Unit-tested:** TypeScript types compile, the package builds (ESM + CJS + `.d.ts`), and a full unit-test suite passes (mocked `fetch`), including the Next/NestJS/Express/Hono/Fastify webhook adapters **run against real framework servers** (Express 5, Fastify 5, Hono, NestJS 11). The mock provider is exercised directly, and a mock-parity suite locks the mock's result shapes to what the real providers actually return. Consumers are verified with real `node` in both CJS and ESM (`test:node`), and published type resolution is validated with `attw` (`test:types`).
 - **Live-sandbox verified (both providers):** `initialize`, `verify`, `resolveAccount`, `listBanks`, `getBalances`, `listTransactions`, `refund`, `chargeAuthorization`, and signature-verified webhooks have all been run successfully against the real Paystack and Flutterwave test sandboxes. Two bugs were caught and fixed this way: `initialize` and `chargeAuthorization` both require a redirect URL on Flutterwave (`callbackUrl`), which the SDK previously omitted. Webhook checks confirm a valid signature is accepted, a tampered one is rejected, and the amount is normalized to subunits on both providers - and both are additionally verified against an **actual live delivery** captured from the dashboard (via `scripts/webhook-live.ts`). Real-delivery testing caught a third bug: Flutterwave ships a flat legacy webhook payload the parser didn't handle, now fixed.
 - **Live-sandbox verified (Flutterwave):** `createSubaccount` creates a real subaccount, and a charge carrying that subaccount as a `split` is accepted by the live API - so the subaccount + split mapping is verified end to end on Flutterwave. On Paystack both are request-correct but account-gated (see below).
 - **Request-validated but account-gated:** `transfer`, `verifyTransfer`, and Paystack `createSubaccount` reach the provider and pass request validation (and Flutterwave IP whitelisting), but completing them requires a transfer-enabled merchant account and a resolvable settlement account - the test account does not have one, so Paystack rejects with "Account details are invalid" / "cannot resolve account". Paystack `splits` is unit-tested only (it needs a created subaccount to attach).
@@ -527,11 +527,15 @@ bun test             # run the test suite (bun:test, mocked fetch)
 bun run typecheck    # tsc --noEmit
 bun run build        # tsup -> dist (ESM + CJS + .d.ts)
 bun run test:dist    # build + smoke-test the built dist entry points (ESM + CJS)
+bun run test:node    # build + import the built package with real `node` (CJS + ESM)
+bun run test:types   # build + check published type resolution with `attw`
 ```
 
 Runnable examples live in [`examples/`](./examples) (e.g. `bun run examples/checkout.ts`).
 
-`bun run test:dist` imports the **built** package (not source) and exercises every public entry point - `index`, `/express`, `/hono`, `/fastify`, `/next`, `/nestjs` in both ESM and CJS - so a broken `exports` map or interop issue fails the test instead of shipping. It runs automatically in `prepublishOnly`.
+`bun run test:dist` imports the **built** package (not source) and exercises every public entry point - `index`, `/express`, `/hono`, `/fastify`, `/next`, `/nestjs` in both ESM and CJS - so a broken `exports` map or interop issue fails the test instead of shipping. `test:node` does the same under real `node`, and `test:types` verifies the type declarations resolve for CJS, ESM, and bundler consumers. All four gates (typecheck, unit, dist, node, types) run automatically in `prepublishOnly`.
+
+The test suite also includes **edge-response tests** (HTML error pages, 429s, `status: false` on HTTP 200, `data: null`, malformed JSON), **mock-parity tests** (the mock provider must return exactly the shapes the real providers return), and a **fallback drill** (`bun run fallback-drill`) that points one provider at a dead URL to prove live failover works.
 
 ### Live-sandbox integration checks
 

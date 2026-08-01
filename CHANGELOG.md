@@ -6,7 +6,50 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- **Fastify webhook signatures failed on every valid webhook.** The plugin
+  registered only a wildcard `*/*` content-type parser, but Fastify's
+  built-in `application/json` parser wins over a wildcard - so webhook
+  bodies arrived JSON-parsed and the signature check always failed (401).
+  The plugin now registers `application/json` and `text/plain` explicitly
+  with `parseAs: "string"`, with the wildcard kept as a fallback. Caught by
+  the new real-Fastify-server tests, not by the mock `FastifyLike` interface.
+- **Paystack plan responses dropped `duration`.** `mapPlan` never read the
+  field even though `Plan` supports it (and Flutterwave maps it); the mock
+  provider did return it, so offline tests saw a shape real Paystack
+  responses never produced.
+
 ### Added
+- **Real-framework adapter tests.** The webhook adapters are now exercised
+  against actual Express 5, Fastify 5, Hono, and NestJS 11 applications
+  booted in-process - valid, tampered, malformed, and throwing webhook
+  paths, plus proof that other routes keep normal JSON parsing. The mock
+  `Like` interfaces previously hid a real Fastify bug (see Fixed).
+- **Node consumer smoke tests (`bun run test:node`).** The built package is
+  imported by real `node` (not bun) in both CJS (`node-smoke.cjs`) and ESM
+  (`node-smoke.mjs`), covering the main entry and all five subpaths.
+- **Published type resolution checks (`bun run test:types`).** `attw --pack .`
+  validates the `exports` map and types across node10, node16 CJS, node16
+  ESM, and bundler resolution. New per-condition `types` entries and a
+  `typesVersions` block make every subpath resolve for both `import` and
+  `require` consumers ("No problems found").
+- **Edge-response-shape tests.** Non-JSON 4xx/5xx bodies, 429s, empty-body
+  401s, provider app-level failures on HTTP 200 (`status: false` /
+  `status: "error"`), `data: null`, empty arrays, missing fields, and
+  malformed JSON on 200 - plus fallback failover on retryable errors and
+  no failover on non-retryable ones.
+- **Mock-provider parity tests.** Every field the mock returns for an
+  operation must appear under the same key with the same value type in the
+  real providers' results (the mock may omit optional fields, never add or
+  retype them). Asymmetries are locked in reverse: Flutterwave's
+  `accessCode`-free initialize and Paystack's minimal
+  `cancelSubscription`/`enableSubscription` shapes must be covered by the
+  mock's.
+- **Live fallback drill (`bun run fallback-drill`).** With real test keys,
+  runs one provider against a dead base URL while the other is live, both
+  directions, and both-dead - proving failover picks the healthy provider
+  and both-dead surfaces a retryable `network_error`. All three scenarios
+  verified live.
 - **Dist-consumption smoke test (`bun run test:dist`).** Imports the built
   package (not source) and exercises every public entry point - the main
   entry plus `/express`, `/hono`, `/fastify`, `/next`, `/nestjs` - in both
