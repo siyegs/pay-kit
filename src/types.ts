@@ -95,6 +95,12 @@ export interface InitializeParams {
   metadata?: Record<string, unknown>;
   /** Split part of this charge to a subaccount (marketplace payout). */
   split?: SplitConfig;
+  /**
+   * Plan code/id (from `createPlan`) to start a subscription with this charge.
+   * The customer is billed at the plan's amount and interval from here on.
+   * Paystack: `plan_code`. Flutterwave: the numeric payment plan id.
+   */
+  plan?: string;
 }
 
 export interface InitializeResult {
@@ -324,6 +330,166 @@ export interface TransactionList {
   /** The page this result represents, when reported. */
   page?: number;
   raw: unknown;
+}
+
+/**
+ * Billing interval, canonicalized across providers. pay-kit maps `yearly` to
+ * Paystack's `annually` and `biannually` to Flutterwave's `bi-annually`; the
+ * open string tail passes custom values through (e.g. Flutterwave's
+ * "every x y"). `hourly` is Flutterwave-only - Paystack supports daily through
+ * annually.
+ */
+export type PlanInterval =
+  | "hourly"
+  | "daily"
+  | "weekly"
+  | "monthly"
+  | "quarterly"
+  | "biannually"
+  | "yearly"
+  | (string & {});
+
+export interface CreatePlanParams {
+  /** Display name of the plan (shown on invoices/reminders). */
+  name: string;
+  /**
+   * Amount per billing cycle in subunits. **Required by Paystack** (it charges
+   * the plan's fixed amount); optional on Flutterwave for dynamic amounts set
+   * per customer at charge time.
+   */
+  amount?: number;
+  interval: PlanInterval;
+  description?: string;
+  currency?: Currency;
+  /** Billing cycles before the subscription stops (Flutterwave). */
+  duration?: number;
+  /** Send invoice emails to customers (Paystack). Defaults to true. */
+  sendInvoices?: boolean;
+  /** Send SMS reminders to customers (Paystack). Defaults to true. */
+  sendSms?: boolean;
+  /** Maximum number of charges per subscription (Paystack). */
+  invoiceLimit?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface Plan {
+  /**
+   * Provider plan identifier - pass it to `initialize({ plan })` and the
+   * subscription methods. Paystack: `plan_code`. Flutterwave: numeric `id`.
+   */
+  id: string;
+  name: string;
+  /** Amount per billing cycle in subunits, when the plan has a fixed amount. */
+  amount?: number;
+  interval?: string;
+  currency?: string;
+  /** Provider plan status (e.g. `active` / `cancelled`). */
+  status?: string;
+  duration?: number;
+  raw: unknown;
+}
+
+export interface ListPlansOptions {
+  /** 1-based page number. */
+  page?: number;
+  /** Page size (Paystack `perPage`). */
+  perPage?: number;
+  /** Filter by plan status. */
+  status?: string;
+  /** Filter by currency. */
+  currency?: string;
+}
+
+export interface PlanList {
+  plans: Plan[];
+  /** The page this result represents, when reported. */
+  page?: number;
+  raw: unknown;
+}
+
+export interface UpdatePlanParams {
+  name?: string;
+  /** Amount per billing cycle in subunits. */
+  amount?: number;
+  interval?: PlanInterval;
+  description?: string;
+  currency?: Currency;
+  /** Billing cycles before the subscription stops (Flutterwave). */
+  duration?: number;
+  /** Send invoice emails to customers (Paystack). */
+  sendInvoices?: boolean;
+  /** Send SMS reminders to customers (Paystack). */
+  sendSms?: boolean;
+  /** Maximum number of charges per subscription (Paystack). */
+  invoiceLimit?: number;
+}
+
+/**
+ * Subscribe a customer to a plan. **Paystack only** - Flutterwave creates
+ * subscriptions automatically when a charge carries a plan, so use
+ * `initialize({ plan })` there instead.
+ */
+export interface CreateSubscriptionParams {
+  /** Customer code or email with an existing authorization to charge. */
+  customer: string;
+  /** Plan code/id from `createPlan`. */
+  plan: string;
+  /** Specific authorization code to charge (defaults to the most recent). */
+  authorization?: string;
+  /** ISO-8601 start date. */
+  startDate?: string;
+  /** ISO-8601 end date. */
+  endDate?: string;
+}
+
+export interface Subscription {
+  /**
+   * Provider subscription identifier. Paystack: `subscription_code`.
+   * Flutterwave: numeric `id`.
+   */
+  id: string;
+  /** Customer code or email the subscription belongs to. */
+  customer?: string;
+  /** Plan code/id the subscription follows. */
+  plan?: string;
+  /** Provider subscription status. */
+  status?: string;
+  nextPaymentDate?: string;
+  /**
+   * Paystack's `email_token` - required to disable/re-enable the subscription
+   * with `cancelSubscription` / `enableSubscription`.
+   */
+  emailToken?: string;
+  createdAt?: string;
+  raw: unknown;
+}
+
+export interface ListSubscriptionsOptions {
+  /** 1-based page number. */
+  page?: number;
+  /** Page size (Paystack `perPage`). */
+  perPage?: number;
+  /** Filter by plan code/id. */
+  plan?: string;
+  /** Filter by customer code/email (Paystack). */
+  customer?: string;
+  /** Filter by subscription status. */
+  status?: string;
+}
+
+export interface SubscriptionList {
+  subscriptions: Subscription[];
+  /** The page this result represents, when reported. */
+  page?: number;
+  raw: unknown;
+}
+
+export interface SubscriptionActionParams {
+  /**
+   * Paystack `email_token` (returned by `createSubscription`) - required to
+   * disable or re-enable a Paystack subscription. Not needed by Flutterwave.
+   */
+  token?: string;
 }
 
 /** Internal context handed to each provider adapter. */
