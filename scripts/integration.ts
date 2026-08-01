@@ -10,9 +10,10 @@
  * Keys are read from `.env` (Bun auto-loads it; `.env` is gitignored - never
  * commit real keys). Copy `.env.example` to `.env` and fill in your TEST keys.
  *
- * Safe by default: only reads and creates a single test-mode charge (no money
- * moves). To also exercise a test-mode payout, set RUN_TRANSFERS=1 and provide
- * RESOLVE_ACCOUNT + RESOLVE_BANK.
+ * Safe by default: only reads and creates a single test-mode charge and a
+ * single test-mode plan (no money moves; the plan is updated and cancelled
+ * again in the same run). To also exercise a test-mode payout, set
+ * RUN_TRANSFERS=1 and provide RESOLVE_ACCOUNT + RESOLVE_BANK.
  */
 import { createPayClient, PayKitError } from "../src";
 import type { PayClientConfig, ProviderName } from "../src";
@@ -75,6 +76,11 @@ async function checkProvider(provider: ProviderName, cfg: PayClientConfig): Prom
   const pay = createPayClient(cfg);
   const email = "integration@pay-kit.dev";
   let reference = "";
+  let planId = "";
+  let planName = "";
+
+  // Bank codes are provider-specific, so allow per-provider overrides
+  // (e.g. Paystack test bank code 001, Flutterwave 044) with a shared fallback.
 
   // Bank codes are provider-specific, so allow per-provider overrides
   // (e.g. Paystack test bank code 001, Flutterwave 044) with a shared fallback.
@@ -104,6 +110,58 @@ async function checkProvider(provider: ProviderName, cfg: PayClientConfig): Prom
     // Read-only plan/subscription checks - test accounts can have none.
     { name: "listPlans", soft: true, run: () => pay.listPlans({ perPage: 5, page: 1 }) },
     { name: "listSubscriptions", soft: true, run: () => pay.listSubscriptions({ perPage: 5, page: 1 }) },
+
+    // Plan lifecycle (test-mode, no money moves).
+    {
+      name: "createPlan",
+      soft: true,
+      run: async () => {
+        const plan = await pay.createPlan({
+          name: `pay-kit-integ-${Date.now()}`,
+          amount: 500000,
+          interval: "monthly",
+          currency: "NGN",
+        });
+        planId = plan.id ?? "";
+        planName = plan.name ?? "";
+        if (!planId) throw new Error("no plan id returned");
+        return plan;
+      },
+    },
+    {
+      name: "fetchPlan",
+      soft: true,
+      run: () => {
+        if (!planId) throw new Error("no planId");
+        return pay.fetchPlan(planId);
+      },
+    },
+    {
+      name: "updatePlan",
+      soft: true,
+      run: () => {
+        if (!planId) throw new Error("no planId");
+        return pay.updatePlan(planId, { name: `${planName}-updated` });
+      },
+    },
+    {
+      name: "cancelPlan",
+      soft: true,
+      run: async () => {
+        if (!planId) throw new Error("no planId");
+        // Paystack has no cancel-plan endpoint - verify we get unsupported.
+        try {
+          await pay.cancelPlan(planId);
+          if (provider === "paystack") throw new Error("paystack cancelPlan should have thrown unsupported");
+        } catch (err) {
+          if (provider === "paystack" && (err as Record<string, unknown>)?.code === "unsupported") {
+            return { status: "unsupported (expected)", planId };
+          }
+          throw err;
+        }
+        return { status: "cancelled" };
+      },
+    },
   ];
 
   if (acct && bank) {
