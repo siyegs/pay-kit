@@ -463,6 +463,194 @@ describe("paystack: createSubaccount", () => {
   });
 });
 
+describe("paystack: plans", () => {
+  const planResponse = {
+    status: true,
+    data: {
+      plan_code: "PLN_abc123",
+      name: "Pro Monthly",
+      amount: 500000,
+      interval: "monthly",
+      currency: "NGN",
+      status: "active",
+    },
+  };
+
+  it("creates a plan with the canonical interval mapped (yearly -> annually)", async () => {
+    const { fetch, calls } = mockFetch(() => ({ body: planResponse }));
+    const pay = createPayClient({ provider: "paystack", secretKey: SECRET, fetch });
+
+    const plan = await pay.createPlan({
+      name: "Pro Monthly",
+      amount: 500000,
+      interval: "yearly",
+      currency: "NGN",
+    });
+
+    expect(plan.id).toBe("PLN_abc123");
+    expect(plan.amount).toBe(500000);
+    expect(plan.interval).toBe("monthly");
+    expect(calls[0]!.url).toContain("/plan");
+    const sent = jsonBody(calls[0]!.init);
+    expect(sent.name).toBe("Pro Monthly");
+    expect(sent.amount).toBe(500000);
+    expect(sent.interval).toBe("annually");
+    expect(sent.currency).toBe("NGN");
+  });
+
+  it("requires an amount for Paystack plans (subunits, no dynamic pricing)", async () => {
+    const { fetch } = mockFetch(() => ({ body: planResponse }));
+    const pay = createPayClient({ provider: "paystack", secretKey: SECRET, fetch });
+
+    await expect(
+      pay.createPlan({ name: "Pro", interval: "monthly" }),
+    ).rejects.toMatchObject({ code: "config_error" });
+  });
+
+  it("lists plans with pagination and status filters", async () => {
+    const { fetch, calls } = mockFetch(() => ({
+      body: { status: true, data: [planResponse.data], meta: { total: 1 } },
+    }));
+    const pay = createPayClient({ provider: "paystack", secretKey: SECRET, fetch });
+
+    const list = await pay.listPlans({ page: 2, perPage: 10, status: "active", currency: "NGN" });
+    expect(list.plans).toHaveLength(1);
+    expect(list.plans[0]!.id).toBe("PLN_abc123");
+    const url = calls[0]!.url;
+    expect(url).toContain("/plan");
+    expect(url).toContain("page=2");
+    expect(url).toContain("perPage=10");
+    expect(url).toContain("status=active");
+    expect(url).toContain("currency=NGN");
+  });
+
+  it("fetches and updates a plan by code", async () => {
+    const { fetch, calls } = mockFetch(() => ({ body: planResponse }));
+    const pay = createPayClient({ provider: "paystack", secretKey: SECRET, fetch });
+
+    const fetched = await pay.fetchPlan("PLN_abc123");
+    expect(fetched.id).toBe("PLN_abc123");
+    expect(calls[0]!.url).toContain("/plan/PLN_abc123");
+
+    const updated = await pay.updatePlan("PLN_abc123", { name: "Pro Yearly", amount: 5000000 });
+    expect(updated.name).toBe("Pro Monthly");
+    const sent = jsonBody(calls[1]!.init);
+    expect(sent.name).toBe("Pro Yearly");
+    expect(sent.amount).toBe(5000000);
+    expect(calls[1]!.init.method).toBe("PUT");
+  });
+
+  it("cannot cancel a Paystack plan - no endpoint exists", async () => {
+    const { fetch } = mockFetch(() => ({ body: planResponse }));
+    const pay = createPayClient({ provider: "paystack", secretKey: SECRET, fetch });
+
+    await expect(pay.cancelPlan("PLN_abc123")).rejects.toMatchObject({ code: "unsupported" });
+  });
+});
+
+describe("paystack: subscriptions", () => {
+  const subResponse = {
+    status: true,
+    data: {
+      subscription_code: "SUB_xyz789",
+      customer: { customer_code: "CUS_1", email: "a@b.com" },
+      plan: { plan_code: "PLN_abc123" },
+      status: "active",
+      email_token: "tok_1",
+      next_payment_date: "2026-09-01T00:00:00.000Z",
+    },
+  };
+
+  it("creates a subscription from customer/plan/authorization", async () => {
+    const { fetch, calls } = mockFetch(() => ({ body: subResponse }));
+    const pay = createPayClient({ provider: "paystack", secretKey: SECRET, fetch });
+
+    const sub = await pay.createSubscription({
+      customer: "CUS_1",
+      plan: "PLN_abc123",
+      authorization: "AUTH_1",
+    });
+
+    expect(sub.id).toBe("SUB_xyz789");
+    expect(sub.emailToken).toBe("tok_1");
+    expect(sub.status).toBe("active");
+    expect(calls[0]!.url).toContain("/subscription");
+    const sent = jsonBody(calls[0]!.init);
+    expect(sent.customer).toBe("CUS_1");
+    expect(sent.plan).toBe("PLN_abc123");
+    expect(sent.authorization).toBe("AUTH_1");
+  });
+
+  it("lists and fetches subscriptions", async () => {
+    let list = true;
+    const { fetch, calls } = mockFetch(() => ({
+      body: { status: true, data: list ? [subResponse.data] : subResponse.data },
+    }));
+    const pay = createPayClient({ provider: "paystack", secretKey: SECRET, fetch });
+
+    const result = await pay.listSubscriptions({ perPage: 5 });
+    expect(result.subscriptions).toHaveLength(1);
+    expect(calls[0]!.url).toContain("/subscription");
+    expect(calls[0]!.url).toContain("perPage=5");
+
+    list = false;
+    const fetched = await pay.fetchSubscription("SUB_xyz789");
+    expect(fetched.id).toBe("SUB_xyz789");
+    expect(calls[1]!.url).toContain("/subscription/SUB_xyz789");
+  });
+
+  it("cancels (disables) a subscription with code + email token", async () => {
+    const { fetch, calls } = mockFetch(() => ({ body: subResponse }));
+    const pay = createPayClient({ provider: "paystack", secretKey: SECRET, fetch });
+
+    const sub = await pay.cancelSubscription("SUB_xyz789", { token: "tok_1" });
+    expect(sub.status).toBe("cancelled");
+    expect(sub.id).toBe("SUB_xyz789");
+    expect(calls[0]!.url).toContain("/subscription/disable");
+    const sent = jsonBody(calls[0]!.init);
+    expect(sent.code).toBe("SUB_xyz789");
+    expect(sent.token).toBe("tok_1");
+  });
+
+  it("rejects cancel/enable without the email token", async () => {
+    const { fetch } = mockFetch(() => ({ body: subResponse }));
+    const pay = createPayClient({ provider: "paystack", secretKey: SECRET, fetch });
+
+    await expect(pay.cancelSubscription("SUB_xyz789")).rejects.toMatchObject({
+      code: "config_error",
+    });
+    await expect(pay.enableSubscription("SUB_xyz789")).rejects.toMatchObject({
+      code: "config_error",
+    });
+  });
+
+  it("re-enables (enables) a subscription with code + email token", async () => {
+    const { fetch, calls } = mockFetch(() => ({ body: subResponse }));
+    const pay = createPayClient({ provider: "paystack", secretKey: SECRET, fetch });
+
+    await pay.enableSubscription("SUB_xyz789", { token: "tok_1" });
+    expect(calls[0]!.url).toContain("/subscription/enable");
+  });
+});
+
+describe("paystack: initialize with a plan", () => {
+  it("posts the plan code so Paystack starts the subscription flow", async () => {
+    const { fetch, calls } = mockFetch(() => ({
+      body: {
+        status: true,
+        data: { authorization_url: "https://pay.example/checkout", reference: "ref_plan" },
+      },
+    }));
+    const pay = createPayClient({ provider: "paystack", secretKey: SECRET, fetch });
+
+    await pay.initialize({ amount: 500000, email: "a@b.com", plan: "PLN_abc123" });
+
+    const sent = jsonBody(calls[0]!.init);
+    expect(sent.plan).toBe("PLN_abc123");
+    expect(sent.amount).toBe(500000);
+  });
+});
+
 describe("config", () => {
   it("throws when secretKey is missing", () => {
     expect(() => createPayClient({ provider: "paystack", secretKey: "" })).toThrow(PayKitError);

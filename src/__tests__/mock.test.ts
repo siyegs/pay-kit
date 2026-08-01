@@ -167,6 +167,89 @@ describe("mock: webhooks", () => {
   });
 });
 
+describe("mock: plans", () => {
+  it("runs the full plan lifecycle in memory", async () => {
+    const pay = createPayClient({ provider: "mock" });
+
+    const created = await pay.createPlan({
+      name: "Pro Monthly",
+      amount: 500000,
+      interval: "monthly",
+      currency: "NGN",
+    });
+    expect(created.id).toContain("mock_plan_");
+    expect(created.amount).toBe(500000);
+    expect(created.status).toBe("active");
+
+    const fetched = await pay.fetchPlan(created.id);
+    expect(fetched.name).toBe("Pro Monthly");
+
+    const updated = await pay.updatePlan(created.id, { amount: 250000 });
+    expect(updated.amount).toBe(250000);
+
+    const cancelled = await pay.cancelPlan(created.id);
+    expect(cancelled.status).toBe("cancelled");
+    expect((await pay.fetchPlan(created.id)).status).toBe("cancelled");
+  });
+
+  it("lists the plans it has seen", async () => {
+    const pay = createPayClient({ provider: "mock" });
+    await pay.createPlan({ name: "A", amount: 1000, interval: "monthly" });
+    await pay.createPlan({ name: "B", amount: 2000, interval: "yearly" });
+
+    const list = await pay.listPlans();
+    expect(list.plans).toHaveLength(2);
+    expect(list.plans.map((p) => p.name).sort()).toEqual(["A", "B"]);
+  });
+
+  it("errors on unknown plans", async () => {
+    const pay = createPayClient({ provider: "mock" });
+    await expect(pay.fetchPlan("mock_plan_nope")).rejects.toMatchObject({
+      code: "provider_error",
+    });
+  });
+});
+
+describe("mock: subscriptions", () => {
+  it("creates a subscription against an existing plan", async () => {
+    const pay = createPayClient({ provider: "mock" });
+    const plan = await pay.createPlan({ name: "Pro", amount: 500000, interval: "monthly" });
+
+    const sub = await pay.createSubscription({
+      customer: "a@b.com",
+      plan: plan.id,
+    });
+    expect(sub.id).toContain("mock_sub_");
+    expect(sub.plan).toBe(plan.id);
+    expect(sub.customer).toBe("a@b.com");
+    expect(sub.status).toBe("active");
+    expect(sub.emailToken).toContain("mock_tok_");
+  });
+
+  it("refuses a subscription against an unknown plan", async () => {
+    const pay = createPayClient({ provider: "mock" });
+    await expect(
+      pay.createSubscription({ customer: "a@b.com", plan: "mock_plan_nope" }),
+    ).rejects.toMatchObject({ code: "provider_error" });
+  });
+
+  it("cancels and re-enables a subscription", async () => {
+    const pay = createPayClient({ provider: "mock" });
+    const plan = await pay.createPlan({ name: "Pro", amount: 500000, interval: "monthly" });
+    const sub = await pay.createSubscription({ customer: "a@b.com", plan: plan.id });
+
+    const cancelled = await pay.cancelSubscription(sub.id);
+    expect(cancelled.status).toBe("cancelled");
+
+    const reenabled = await pay.enableSubscription(sub.id);
+    expect(reenabled.status).toBe("active");
+
+    const list = await pay.listSubscriptions();
+    expect(list.subscriptions).toHaveLength(1);
+    expect(list.subscriptions[0]!.id).toBe(sub.id);
+  });
+});
+
 describe("mock: createSubaccount", () => {
   it("returns a mock subaccount id echoing the input", async () => {
     const pay = createPayClient({ provider: "mock" });

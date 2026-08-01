@@ -430,3 +430,161 @@ describe("flutterwave: createSubaccount", () => {
     ).rejects.toThrow(/email/);
   });
 });
+
+describe("flutterwave: plans", () => {
+  it("creates a plan in major units with interval mapped (biannually -> bi-annually)", async () => {
+    const { fetch, calls } = mockFetch(() => ({
+      body: {
+        status: "success",
+        data: { id: 12, name: "Semi-annual Pro", amount: 5000, interval: "bi-annually", status: "active", duration: 3 },
+      },
+    }));
+    const pay = createPayClient({ provider: "flutterwave", secretKey: SECRET, fetch });
+
+    const plan = await pay.createPlan({
+      name: "Semi-annual Pro",
+      amount: 500000,
+      interval: "biannually",
+      currency: "NGN",
+      duration: 3,
+    });
+
+    expect(plan.id).toBe("12");
+    expect(plan.amount).toBe(500000); // mapped back to subunits
+    expect(plan.interval).toBe("bi-annually");
+    expect(plan.duration).toBe(3);
+    expect(calls[0]!.url).toContain("/v3/payment-plans");
+    const sent = jsonBody(calls[0]!.init);
+    expect(sent.amount).toBe(5000);
+    expect(sent.interval).toBe("bi-annually");
+    expect(sent.currency).toBe("NGN");
+    expect(sent.duration).toBe(3);
+  });
+
+  it("allows amount-less plans (Flutterwave supports dynamic amounts at charge time)", async () => {
+    const { fetch, calls } = mockFetch(() => ({
+      body: { status: "success", data: { id: 13, name: "Flex", interval: "monthly", status: "active" } },
+    }));
+    const pay = createPayClient({ provider: "flutterwave", secretKey: SECRET, fetch });
+
+    const plan = await pay.createPlan({ name: "Flex", interval: "monthly" });
+    expect(plan.id).toBe("13");
+    const sent = jsonBody(calls[0]!.init);
+    expect(sent).not.toHaveProperty("amount");
+  });
+
+  it("lists, fetches, updates, and cancels plans by numeric id", async () => {
+    const planData = { id: 12, name: "Pro", amount: 5000, interval: "monthly", status: "active" };
+    let list = true;
+    const { fetch, calls } = mockFetch(() => ({
+      body: { status: "success", data: list ? [planData] : planData },
+    }));
+    const pay = createPayClient({ provider: "flutterwave", secretKey: SECRET, fetch });
+
+    const result = await pay.listPlans({ page: 1, perPage: 10, status: "active" });
+    expect(result.plans[0]!.id).toBe("12");
+    expect(calls[0]!.url).toContain("/v3/payment-plans");
+    expect(calls[0]!.url).toContain("per_page=10");
+
+    list = false;
+    await pay.fetchPlan("12");
+    expect(calls[1]!.url).toContain("/v3/payment-plans/12");
+
+    const updated = await pay.updatePlan("12", { name: "Pro Max", amount: 1000000 });
+    expect(updated.name).toBe("Pro");
+    expect(calls[2]!.init.method).toBe("PUT");
+    expect(jsonBody(calls[2]!.init).amount).toBe(10000);
+
+    const cancelled = await pay.cancelPlan("12");
+    expect(cancelled.id).toBe("12");
+    expect(calls[3]!.url).toContain("/v3/payment-plans/12/cancel");
+  });
+});
+
+describe("flutterwave: subscriptions", () => {
+  it("cannot create a subscription directly - they start via a plan-carrying charge", async () => {
+    const { fetch } = mockFetch(() => ({ body: { status: "success", data: {} } }));
+    const pay = createPayClient({ provider: "flutterwave", secretKey: SECRET, fetch });
+
+    await expect(
+      pay.createSubscription({ customer: "a@b.com", plan: "12" }),
+    ).rejects.toMatchObject({ code: "unsupported" });
+  });
+
+  it("lists subscriptions and maps nested customer email + plan id", async () => {
+    const { fetch, calls } = mockFetch(() => ({
+      body: {
+        status: "success",
+        data: [
+          {
+            id: 99,
+            customer: { email: "a@b.com" },
+            payment_plan: { id: 12, name: "Pro" },
+            status: "active",
+          },
+        ],
+      },
+    }));
+    const pay = createPayClient({ provider: "flutterwave", secretKey: SECRET, fetch });
+
+    const list = await pay.listSubscriptions({ perPage: 5 });
+    expect(list.subscriptions).toHaveLength(1);
+    expect(list.subscriptions[0]!.id).toBe("99");
+    expect(list.subscriptions[0]!.customer).toBe("a@b.com");
+    expect(list.subscriptions[0]!.plan).toBe("12");
+    expect(calls[0]!.url).toContain("/v3/subscriptions");
+    expect(calls[0]!.url).toContain("per_page=5");
+  });
+
+  it("fetches, cancels, and re-activates a subscription", async () => {
+    const sub = {
+      id: 99,
+      customer: { email: "a@b.com" },
+      payment_plan: { id: 12 },
+      status: "active",
+    };
+    const { fetch, calls } = mockFetch(() => ({ body: { status: "success", data: sub } }));
+    const pay = createPayClient({ provider: "flutterwave", secretKey: SECRET, fetch });
+
+    const fetched = await pay.fetchSubscription("99");
+    expect(fetched.id).toBe("99");
+    expect(calls[0]!.url).toContain("/v3/subscriptions/99");
+
+    const cancelled = await pay.cancelSubscription("99");
+    expect(cancelled.status).toBe("active");
+    expect(calls[1]!.url).toContain("/v3/subscriptions/99/cancel");
+
+    await pay.enableSubscription("99");
+    expect(calls[2]!.url).toContain("/v3/subscriptions/99/activate");
+  });
+});
+
+describe("flutterwave: initialize with a plan", () => {
+  it("posts the numeric payment plan id", async () => {
+    const { fetch, calls } = mockFetch(() => ({
+      body: { status: "success", data: { link: "https://checkout.flutterwave.com/xyz" } },
+    }));
+    const pay = createPayClient({ provider: "flutterwave", secretKey: SECRET, fetch });
+
+    await pay.initialize({
+      amount: 500000,
+      email: "a@b.com",
+      plan: "12",
+      callbackUrl: "https://app.example.com/callback",
+    });
+
+    const sent = jsonBody(calls[0]!.init);
+    expect(sent.payment_plan).toBe(12);
+  });
+
+  it("rejects a non-numeric plan id", async () => {
+    const { fetch } = mockFetch(() => ({
+      body: { status: "success", data: { link: "https://checkout.flutterwave.com/xyz" } },
+    }));
+    const pay = createPayClient({ provider: "flutterwave", secretKey: SECRET, fetch });
+
+    await expect(
+      pay.initialize({ amount: 500000, email: "a@b.com", plan: "PLN_abc" }),
+    ).rejects.toMatchObject({ code: "config_error" });
+  });
+});
