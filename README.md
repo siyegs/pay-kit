@@ -258,6 +258,59 @@ const charge = await pay.chargeAuthorization({
 
 Tokens are provider-specific, so on a fallback client `chargeAuthorization(provider, params)` charges via the provider that issued the token.
 
+### Plans & subscriptions
+
+Recurring billing with one API across both providers - create plans, start subscriptions, and manage them without touching provider dashboards.
+
+```ts
+// 1. Define the plan (amount in subunits; `interval` is monthly/weekly/
+//    yearly/biannually/quarterly or any provider interval string)
+const plan = await pay.createPlan({
+  name: "Pro Monthly",
+  amount: 500000, // kobo/cents
+  interval: "monthly",
+  currency: "NGN",
+});
+// -> { id, name, amount, interval, currency?, status?, duration?, raw }
+```
+
+Then start the subscription the way each provider wants it:
+
+```ts
+// Paystack: create the subscription directly (needs a customer with an
+// existing authorization - e.g. from a first saved-card charge)
+const sub = await pay.createSubscription({
+  customer: "CUS_xxxx",            // customer code, or email
+  plan: plan.id,                   // the plan code
+  authorization: "auth_xxxx",      // optional: specific card to charge
+});
+// -> { id: "SUB_xxx", status: "active", emailToken, ... }
+//    store emailToken - cancel/enable need it
+
+// Flutterwave: no create-subscription endpoint - start it with a charge:
+const checkout = await pay.initialize({
+  amount: 500000, email: "a@b.com",
+  plan: "123",                     // numeric payment plan id from createPlan
+});
+```
+
+Manage them:
+
+```ts
+await pay.listPlans({ page: 1, perPage: 50 });         // -> { plans, page?, raw }
+await pay.fetchPlan(plan.id);
+await pay.updatePlan(plan.id, { name: "Pro+", amount: 600000 });
+await pay.cancelPlan(plan.id);                          // Paystack: throws code "unsupported"
+                                                        //   (no cancel endpoint - update instead)
+
+await pay.listSubscriptions({ perPage: 50 });           // -> { subscriptions, page?, raw }
+await pay.fetchSubscription(sub.id);
+await pay.cancelSubscription(sub.id, { token: sub.emailToken! }); // Paystack needs the token
+await pay.enableSubscription(sub.id, { token: sub.emailToken! }); // re-activate after cancel
+```
+
+Provider quirks pay-kit normalizes: Paystack has no cancel-plan endpoint (`cancelPlan` throws code `"unsupported"`) and expects plan `amount` up front; Flutterwave allows amount-less dynamic plans, keys plans by a **numeric** id (a non-numeric `plan` throws `config_error`), and exposes cancel/re-activate with no token. On a fallback client plans/subscriptions always target one provider explicitly, like transfers.
+
 ### Balances & reconciliation
 
 Check your float before paying out, and pull transaction history to reconcile against your own records - both normalized to subunits across providers.
@@ -349,6 +402,16 @@ The mock is **stateful per client**: a charge you `initialize` is remembered, so
 - `getBalances() -> { currency, available, raw }[]` - your provider wallet balance(s) in subunits, one per currency
 - `listTransactions(options?) -> { transactions, page?, raw }` - paginated transaction history for reconciliation (`options.page`, `options.perPage`)
 - `createSubaccount({ businessName, bankCode, accountNumber, percentageCharge, email? }) -> { id, businessName?, accountNumber?, bankCode?, raw }` - create a connected subaccount for splits (Flutterwave requires `email`); pass `id` as `SplitConfig.subaccount`
+- `createPlan({ name, amount?, interval, currency?, duration? }) -> { id, name, amount?, interval, currency?, status?, duration?, raw }` - define a recurring plan (Paystack requires `amount`; Flutterwave allows dynamic amounts)
+- `listPlans(options?) -> { plans, page?, raw }` - paginated plans (`options.page`, `options.perPage`, `options.status`)
+- `fetchPlan(idOrCode) -> Plan` - plan by code/id
+- `updatePlan(idOrCode, { name?, amount?, interval?, ... }) -> Plan` - change name, price, or schedule
+- `cancelPlan(idOrCode) -> Plan` - deactivate a plan (Flutterwave); **Paystack throws code `"unsupported"`** - no cancel endpoint exists
+- `createSubscription({ customer, plan, authorization?, startDate?, endDate? }) -> { id, status, emailToken?, ... }` - start a subscription (Paystack; Flutterwave starts them via `initialize({ plan })`)
+- `listSubscriptions(options?) -> { subscriptions, page?, raw }` - paginated subscriptions
+- `fetchSubscription(idOrCode) -> Subscription`
+- `cancelSubscription(idOrCode, { token? }) -> Subscription` - stop recurring charges (Paystack requires the `emailToken` from `createSubscription`; Flutterwave needs no token)
+- `enableSubscription(idOrCode, { token? }) -> Subscription` - re-activate a cancelled subscription (token rules as above)
 - `webhooks.construct(rawBody, signature) -> { type, reference, status?, amount?, currency?, raw }`
 
 `status` is normalized to `"success" | "failed" | "pending" | "abandoned"`.
@@ -440,7 +503,7 @@ Bank codes are **provider-specific**, so list and resolve against the same provi
 - [x] Web / Next.js webhook route adapter (`@siyegs/pay-kit/next`, works in any Fetch-API runtime)
 - [x] NestJS module adapter (`@siyegs/pay-kit/nestjs`)
 - [x] Express / Hono / Fastify webhook adapters (`@siyegs/pay-kit/express`, `/hono`, `/fastify`)
-- [ ] Plans & subscriptions
+- [x] Plans & subscriptions (recurring billing)
 
 ## Status
 
@@ -450,6 +513,7 @@ pay-kit is **beta (pre-1.0)**. Here is exactly what is and is not verified:
 - **Live-sandbox verified (both providers):** `initialize`, `verify`, `resolveAccount`, `listBanks`, `getBalances`, `listTransactions`, `refund`, `chargeAuthorization`, and signature-verified webhooks have all been run successfully against the real Paystack and Flutterwave test sandboxes. Two bugs were caught and fixed this way: `initialize` and `chargeAuthorization` both require a redirect URL on Flutterwave (`callbackUrl`), which the SDK previously omitted. Webhook checks confirm a valid signature is accepted, a tampered one is rejected, and the amount is normalized to subunits on both providers - and both are additionally verified against an **actual live delivery** captured from the dashboard (via `scripts/webhook-live.ts`). Real-delivery testing caught a third bug: Flutterwave ships a flat legacy webhook payload the parser didn't handle, now fixed.
 - **Live-sandbox verified (Flutterwave):** `createSubaccount` creates a real subaccount, and a charge carrying that subaccount as a `split` is accepted by the live API - so the subaccount + split mapping is verified end to end on Flutterwave. On Paystack both are request-correct but account-gated (see below).
 - **Request-validated but account-gated:** `transfer`, `verifyTransfer`, and Paystack `createSubaccount` reach the provider and pass request validation (and Flutterwave IP whitelisting), but completing them requires a transfer-enabled merchant account and a resolvable settlement account - the test account does not have one, so Paystack rejects with "Account details are invalid" / "cannot resolve account". Paystack `splits` is unit-tested only (it needs a created subaccount to attach).
+- **Unit-tested, sandbox pending:** `createPlan`/`listPlans`/`fetchPlan`/`updatePlan`/`cancelPlan` and the subscription methods are covered by the mocked-fetch suite; the integration harness lists plans/subscriptions (soft steps) but a live run against the sandboxes has not been done yet. Report any mismatch via [issues](https://github.com/siyegs/pay-kit/issues).
 
 Run the read/charge checks yourself with real test keys: `bun run integration`, and the paid-charge checks with `bun run scripts/verify-charge.ts init <provider>` then `... confirm <provider>` after paying the test charge (see [Development](#development)). Please report any mismatch via [issues](https://github.com/siyegs/pay-kit/issues).
 

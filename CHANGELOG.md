@@ -7,6 +7,23 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- **Plans & subscriptions (recurring billing).** `createPlan`, `listPlans`,
+  `fetchPlan`, `updatePlan`, `cancelPlan`, `createSubscription`,
+  `listSubscriptions`, `fetchSubscription`, `cancelSubscription`, and
+  `enableSubscription` work across Paystack, Flutterwave, and the mock
+  provider with a canonical shape: amounts in subunits, `interval` as
+  `monthly`/`weekly`/`yearly`/`biannually`/etc., one `Plan`/`Subscription`
+  type. Provider differences are handled internally: Paystack maps `yearly`
+  to `annually`, requires a plan `amount`, and starts subscriptions directly
+  (returning the `emailToken` that cancel/enable need - both throw
+  `config_error` without it) - its `cancelPlan` throws code `"unsupported"`
+  because no cancel endpoint exists. Flutterwave maps `biannually` to
+  `bi-annually`, converts amounts to major units, allows amount-less dynamic
+  plans, keys plans by a numeric id (`initialize({ plan })` rejects
+  non-numeric ids with `config_error`), and starts subscriptions through a
+  plan-carrying charge (`createSubscription` throws `"unsupported"`). The
+  integration harness gained read-only `listPlans`/`listSubscriptions` soft
+  checks.
 - **Express / Hono / Fastify webhook adapters.** `@siyegs/pay-kit/express`
   (`webhookMiddleware`), `@siyegs/pay-kit/hono` (`webhookHandler`), and
   `@siyegs/pay-kit/fastify` (`webhookPlugin`) all read the raw request bytes

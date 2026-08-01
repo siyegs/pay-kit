@@ -43,6 +43,8 @@ function summarize(out: unknown): string {
     const o = out as Record<string, unknown>;
     if ("authorizationUrl" in o) return `ref=${o.reference}`;
     if ("transactions" in o) return `(${(o.transactions as unknown[]).length} txns)`;
+    if ("plans" in o) return `(${(o.plans as unknown[]).length} plans)`;
+    if ("subscriptions" in o) return `(${(o.subscriptions as unknown[]).length} subs)`;
     if ("accountName" in o) return `name=${o.accountName}`;
     if ("status" in o) {
       return `status=${o.status}${o.amount !== undefined ? ` amount=${o.amount}` : ""}`;
@@ -99,6 +101,9 @@ async function checkProvider(provider: ProviderName, cfg: PayClientConfig): Prom
     },
     // Unpaid, so a pending/abandoned status is expected - soft.
     { name: "verify", soft: true, run: () => pay.verify(reference) },
+    // Read-only plan/subscription checks - test accounts can have none.
+    { name: "listPlans", soft: true, run: () => pay.listPlans({ perPage: 5, page: 1 }) },
+    { name: "listSubscriptions", soft: true, run: () => pay.listSubscriptions({ perPage: 5, page: 1 }) },
   ];
 
   if (acct && bank) {
