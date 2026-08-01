@@ -7,6 +7,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- **Dist-consumption smoke test (`bun run test:dist`).** Imports the built
+  package (not source) and exercises every public entry point - the main
+  entry plus `/express`, `/hono`, `/fastify`, `/next`, `/nestjs` - in both
+  ESM and CJS, including a mock init/verify lifecycle, webhook verification
+  through every adapter, and a fallback client against dead endpoints. A
+  broken `exports` map or ESM/CJS interop issue now fails the test instead
+  of shipping; `prepublishOnly` runs it automatically.
+- **Live plan lifecycle checks in the integration harness.** `bun run
+  integration` now creates, fetches, updates, and cancels a test-mode plan
+  per provider (Paystack's expected `unsupported` on `cancelPlan` counts as
+  a pass). Verified live against both sandboxes: Flutterwave's full
+  create -> fetch -> update -> cancel cycle (including subunit/major-unit
+  conversion), and Paystack's create/fetch/update + `unsupported` cancel.
 - **Plans & subscriptions (recurring billing).** `createPlan`, `listPlans`,
   `fetchPlan`, `updatePlan`, `cancelPlan`, `createSubscription`,
   `listSubscriptions`, `fetchSubscription`, `cancelSubscription`, and

@@ -513,7 +513,7 @@ pay-kit is **beta (pre-1.0)**. Here is exactly what is and is not verified:
 - **Live-sandbox verified (both providers):** `initialize`, `verify`, `resolveAccount`, `listBanks`, `getBalances`, `listTransactions`, `refund`, `chargeAuthorization`, and signature-verified webhooks have all been run successfully against the real Paystack and Flutterwave test sandboxes. Two bugs were caught and fixed this way: `initialize` and `chargeAuthorization` both require a redirect URL on Flutterwave (`callbackUrl`), which the SDK previously omitted. Webhook checks confirm a valid signature is accepted, a tampered one is rejected, and the amount is normalized to subunits on both providers - and both are additionally verified against an **actual live delivery** captured from the dashboard (via `scripts/webhook-live.ts`). Real-delivery testing caught a third bug: Flutterwave ships a flat legacy webhook payload the parser didn't handle, now fixed.
 - **Live-sandbox verified (Flutterwave):** `createSubaccount` creates a real subaccount, and a charge carrying that subaccount as a `split` is accepted by the live API - so the subaccount + split mapping is verified end to end on Flutterwave. On Paystack both are request-correct but account-gated (see below).
 - **Request-validated but account-gated:** `transfer`, `verifyTransfer`, and Paystack `createSubaccount` reach the provider and pass request validation (and Flutterwave IP whitelisting), but completing them requires a transfer-enabled merchant account and a resolvable settlement account - the test account does not have one, so Paystack rejects with "Account details are invalid" / "cannot resolve account". Paystack `splits` is unit-tested only (it needs a created subaccount to attach).
-- **Unit-tested, sandbox pending:** `createPlan`/`listPlans`/`fetchPlan`/`updatePlan`/`cancelPlan` and the subscription methods are covered by the mocked-fetch suite; the integration harness lists plans/subscriptions (soft steps), and a live run confirmed `listPlans`/`listSubscriptions` on both sandboxes, but the create/update/cancel paths have not been exercised live yet. Report any mismatch via [issues](https://github.com/siyegs/pay-kit/issues).
+- **Unit-tested, sandbox pending:** the full plan lifecycle (`createPlan`/`fetchPlan`/`updatePlan`/`cancelPlan`) is now **live-sandbox verified on both providers** via the integration harness (a test-mode plan is created, fetched, updated, and cancelled in the same run - no money moves; Paystack's `cancelPlan` returns `unsupported` as designed since it has no cancel endpoint). Subscription **write** paths (`createSubscription`/`cancelSubscription`/`enableSubscription`) remain unit-tested only - they need a real paid authorization on Paystack and a real plan-carrying charge on Flutterwave to exercise fully. Report any mismatch via [issues](https://github.com/siyegs/pay-kit/issues).
 
 Run the read/charge checks yourself with real test keys: `bun run integration`, and the paid-charge checks with `bun run scripts/verify-charge.ts init <provider>` then `... confirm <provider>` after paying the test charge (see [Development](#development)). Please report any mismatch via [issues](https://github.com/siyegs/pay-kit/issues).
 
@@ -526,9 +526,12 @@ bun install          # install deps
 bun test             # run the test suite (bun:test, mocked fetch)
 bun run typecheck    # tsc --noEmit
 bun run build        # tsup -> dist (ESM + CJS + .d.ts)
+bun run test:dist    # build + smoke-test the built dist entry points (ESM + CJS)
 ```
 
 Runnable examples live in [`examples/`](./examples) (e.g. `bun run examples/checkout.ts`).
+
+`bun run test:dist` imports the **built** package (not source) and exercises every public entry point - `index`, `/express`, `/hono`, `/fastify`, `/next`, `/nestjs` in both ESM and CJS - so a broken `exports` map or interop issue fails the test instead of shipping. It runs automatically in `prepublishOnly`.
 
 ### Live-sandbox integration checks
 
@@ -539,7 +542,7 @@ cp .env.example .env   # then add your TEST secret keys
 bun run integration
 ```
 
-`bun run integration` reads keys from `.env` (gitignored - never commit them) and runs `listBanks`, `getBalances`, `listTransactions`, a test-mode `initialize`, and `verify` against each configured provider, printing PASS / WARN / FAIL per step. It only reads and creates a single test-mode charge by default; set `RESOLVE_ACCOUNT` + `RESOLVE_BANK` (and `RUN_TRANSFERS=1`) to also exercise account resolution and a test payout. With no keys present it skips cleanly.
+`bun run integration` reads keys from `.env` (gitignored - never commit them) and runs `listBanks`, `getBalances`, `listTransactions`, a test-mode `initialize`, and `verify` against each configured provider, plus the plan lifecycle (`createPlan` -> `fetchPlan` -> `updatePlan` -> `cancelPlan`; Paystack's expected `unsupported` is treated as a pass) - all read-only or test-mode with no money moves - printing PASS / WARN / FAIL per step. Set `RESOLVE_ACCOUNT` + `RESOLVE_BANK` (and `RUN_TRANSFERS=1`) to also exercise account resolution and a test payout. With no keys present it skips cleanly.
 
 ### Releasing
 
