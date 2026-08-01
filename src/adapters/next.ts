@@ -25,21 +25,16 @@
  *   },
  * });
  */
-import { PayKitError } from "../errors";
-import type { ProviderName, WebhookEvent } from "../types";
+import type { WebhookEvent } from "../types";
+import {
+  isInvalidSignature,
+  json,
+  signatureHeader,
+  type WebhookRouteOptions,
+  type WebhookVerifier,
+} from "./core";
 
-/** The header each provider signs its webhook with. */
-const SIGNATURE_HEADERS: Record<ProviderName, string> = {
-  paystack: "x-paystack-signature",
-  flutterwave: "verif-hash",
-  mock: "x-paystack-signature",
-};
-
-/** The minimal client surface these helpers need (a `PayClient` satisfies it). */
-export interface WebhookVerifier {
-  readonly provider: ProviderName;
-  webhooks: { construct(rawBody: string, signature: string): WebhookEvent };
-}
+export type { WebhookRouteOptions, WebhookVerifier } from "./core";
 
 /**
  * Read the raw body and the provider's signature header from a Web `Request`,
@@ -53,29 +48,11 @@ export async function constructWebhookFromRequest(
   client: WebhookVerifier,
   request: Request,
 ): Promise<WebhookEvent> {
-  const headerName = SIGNATURE_HEADERS[client.provider] ?? SIGNATURE_HEADERS.paystack;
-  const signature = request.headers.get(headerName) ?? "";
+  const signature = request.headers.get(signatureHeader(client.provider)) ?? "";
   // RAW bytes - do not JSON.parse and re-stringify, or the signature breaks.
   const rawBody = await request.text();
   return client.webhooks.construct(rawBody, signature);
 }
-
-export interface WebhookRouteOptions {
-  /**
-   * Handle a verified event. Keep it idempotent, keyed on `event.reference` -
-   * providers may deliver the same event more than once. Throw to signal you
-   * could not process it (the route replies 500 so the provider retries).
-   */
-  onEvent: (event: WebhookEvent) => void | Promise<void>;
-  /** Observe verification/handler failures (logging, metrics). Optional. */
-  onError?: (err: unknown) => void;
-}
-
-const json = (status: number, body: unknown): Response =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json" },
-  });
 
 /**
  * Build a Web-standard route handler `(request: Request) => Promise<Response>`
@@ -94,8 +71,7 @@ export function webhookRoute(
       event = await constructWebhookFromRequest(client, request);
     } catch (err) {
       options.onError?.(err);
-      const badSignature = err instanceof PayKitError && err.code === "invalid_signature";
-      return json(badSignature ? 401 : 400, { error: "invalid webhook" });
+      return json(isInvalidSignature(err) ? 401 : 400, { error: "invalid webhook" });
     }
 
     try {
