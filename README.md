@@ -304,12 +304,15 @@ await pay.cancelPlan(plan.id);                          // Paystack: throws code
                                                         //   (no cancel endpoint - update instead)
 
 await pay.listSubscriptions({ perPage: 50 });           // -> { subscriptions, page?, raw }
-await pay.fetchSubscription(sub.id);
+await pay.fetchSubscription(sub.id);                    // Flutterwave: throws code "unsupported"
+                                                        //   (no fetch-by-id endpoint - use
+                                                        //   listSubscriptions({ plan | email }))
 await pay.cancelSubscription(sub.id, { token: sub.emailToken! }); // Paystack needs the token
-await pay.enableSubscription(sub.id, { token: sub.emailToken! }); // re-activate after cancel
+await pay.enableSubscription(sub.id, { token: sub.emailToken! }); // Paystack: cannot re-activate
+                                                                  //   an API-cancelled subscription
 ```
 
-Provider quirks pay-kit normalizes: Paystack has no cancel-plan endpoint (`cancelPlan` throws code `"unsupported"`) and expects plan `amount` up front; Flutterwave allows amount-less dynamic plans, keys plans by a **numeric** id (a non-numeric `plan` throws `config_error`), and exposes cancel/re-activate with no token. On a fallback client plans/subscriptions always target one provider explicitly, like transfers.
+Provider quirks pay-kit normalizes: Paystack has no cancel-plan endpoint (`cancelPlan` throws code `"unsupported"`), expects plan `amount` up front, and cannot re-activate a subscription it cancelled through the API; Flutterwave allows amount-less dynamic plans, keys plans by a **numeric** id (a non-numeric `plan` throws `config_error`), has no fetch-subscription-by-id endpoint (`fetchSubscription` throws code `"unsupported"`), and exposes cancel/re-activate with no token. On a fallback client plans/subscriptions always target one provider explicitly, like transfers.
 
 ### Balances & reconciliation
 
@@ -409,9 +412,9 @@ The mock is **stateful per client**: a charge you `initialize` is remembered, so
 - `cancelPlan(idOrCode) -> Plan` - deactivate a plan (Flutterwave); **Paystack throws code `"unsupported"`** - no cancel endpoint exists
 - `createSubscription({ customer, plan, authorization?, startDate?, endDate? }) -> { id, status, emailToken?, ... }` - start a subscription (Paystack; Flutterwave starts them via `initialize({ plan })`)
 - `listSubscriptions(options?) -> { subscriptions, page?, raw }` - paginated subscriptions
-- `fetchSubscription(idOrCode) -> Subscription`
+- `fetchSubscription(idOrCode) -> Subscription`; **Flutterwave throws code `"unsupported"`** - it has no fetch-by-id endpoint, use `listSubscriptions({ plan | email })` and match on id
 - `cancelSubscription(idOrCode, { token? }) -> Subscription` - stop recurring charges (Paystack requires the `emailToken` from `createSubscription`; Flutterwave needs no token)
-- `enableSubscription(idOrCode, { token? }) -> Subscription` - re-activate a cancelled subscription (token rules as above)
+- `enableSubscription(idOrCode, { token? }) -> Subscription` - re-activate a cancelled subscription (token rules as above; **Paystack rejects re-activating a subscription it cancelled via the API**)
 - `webhooks.construct(rawBody, signature) -> { type, reference, status?, amount?, currency?, raw }`
 
 `status` is normalized to `"success" | "failed" | "pending" | "abandoned"`.
@@ -511,11 +514,12 @@ pay-kit is **beta (pre-1.0)**. Here is exactly what is and is not verified:
 
 - **Unit-tested:** TypeScript types compile, the package builds (ESM + CJS + `.d.ts`), and a full unit-test suite passes (mocked `fetch`), including the Next/NestJS/Express/Hono/Fastify webhook adapters **run against real framework servers** (Express 5, Fastify 5, Hono, NestJS 11). The mock provider is exercised directly, and a mock-parity suite locks the mock's result shapes to what the real providers actually return. Consumers are verified with real `node` in both CJS and ESM (`test:node`), and published type resolution is validated with `attw` (`test:types`).
 - **Live-sandbox verified (both providers):** `initialize`, `verify`, `resolveAccount`, `listBanks`, `getBalances`, `listTransactions`, `refund`, `chargeAuthorization`, and signature-verified webhooks have all been run successfully against the real Paystack and Flutterwave test sandboxes. Two bugs were caught and fixed this way: `initialize` and `chargeAuthorization` both require a redirect URL on Flutterwave (`callbackUrl`), which the SDK previously omitted. Webhook checks confirm a valid signature is accepted, a tampered one is rejected, and the amount is normalized to subunits on both providers - and both are additionally verified against an **actual live delivery** captured from the dashboard (via `scripts/webhook-live.ts`). Real-delivery testing caught a third bug: Flutterwave ships a flat legacy webhook payload the parser didn't handle, now fixed.
+- **Live-sandbox verified with real paid charges (both providers):** the paid-charge write paths have been exercised end to end by paying real test charges on the sandbox checkout pages (`scripts/verify-charge.ts init`/`confirm`): `verify` returns success on a completed charge, `chargeAuthorization` re-charges the saved card, and `refund` refunds the original amount (Paystack refunds start `pending`, Flutterwave completes `processed`). The subscription write paths were verified the same way via plan-carrying charges (`init-sub`/`confirm-sub`): paying a charge against a monthly plan creates the subscription on both providers, `listSubscriptions`/`fetchSubscription` round-trip it, `cancelSubscription` cancels it, and `enableSubscription` re-activates it on Flutterwave. Two bugs were caught and fixed by these live runs: the subscription mappers built `plan`/`customer` from the wrong fields (`String(object)` produced `[object Object]` on Paystack's nested `plan`/`customer` objects, and Flutterwave's plain numeric `plan` id was dropped) - both now map the real shapes. Two documented provider behaviors surfaced as well: **Paystack cannot re-activate a subscription it cancelled via the API** (`/subscription/enable` rejects with "cannot be reactivated"), and **Flutterwave has no fetch-subscription-by-id endpoint** - `fetchSubscription` throws code `"unsupported"` and callers should use `listSubscriptions` with filters instead.
 - **Live-sandbox verified (Flutterwave):** `createSubaccount` creates a real subaccount, and a charge carrying that subaccount as a `split` is accepted by the live API - so the subaccount + split mapping is verified end to end on Flutterwave. On Paystack both are request-correct but account-gated (see below).
 - **Request-validated but account-gated:** `transfer`, `verifyTransfer`, and Paystack `createSubaccount` reach the provider and pass request validation (and Flutterwave IP whitelisting), but completing them requires a transfer-enabled merchant account and a resolvable settlement account - the test account does not have one, so Paystack rejects with "Account details are invalid" / "cannot resolve account". Paystack `splits` is unit-tested only (it needs a created subaccount to attach).
-- **Unit-tested, sandbox pending:** the full plan lifecycle (`createPlan`/`fetchPlan`/`updatePlan`/`cancelPlan`) is now **live-sandbox verified on both providers** via the integration harness (a test-mode plan is created, fetched, updated, and cancelled in the same run - no money moves; Paystack's `cancelPlan` returns `unsupported` as designed since it has no cancel endpoint). Subscription **write** paths (`createSubscription`/`cancelSubscription`/`enableSubscription`) remain unit-tested only - they need a real paid authorization on Paystack and a real plan-carrying charge on Flutterwave to exercise fully. Report any mismatch via [issues](https://github.com/siyegs/pay-kit/issues).
+- **Live-sandbox verified (both providers):** the full plan lifecycle (`createPlan`/`fetchPlan`/`updatePlan`/`cancelPlan`) is verified via the integration harness (a test-mode plan is created, fetched, updated, and cancelled in the same run - no money moves; Paystack's `cancelPlan` returns `unsupported` as designed since it has no cancel endpoint). Report any mismatch via [issues](https://github.com/siyegs/pay-kit/issues).
 
-Run the read/charge checks yourself with real test keys: `bun run integration`, and the paid-charge checks with `bun run scripts/verify-charge.ts init <provider>` then `... confirm <provider>` after paying the test charge (see [Development](#development)). Please report any mismatch via [issues](https://github.com/siyegs/pay-kit/issues).
+Run the read/charge checks yourself with real test keys: `bun run integration`, and the paid-charge checks with `bun run scripts/verify-charge.ts init <provider>` then `... confirm <provider>` after paying the test charge, or `init-sub`/`confirm-sub` for the plan-carrying subscription flow (see [Development](#development)). Please report any mismatch via [issues](https://github.com/siyegs/pay-kit/issues).
 
 ## Development
 

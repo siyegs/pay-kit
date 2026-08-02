@@ -4,6 +4,39 @@ All notable changes to `@siyegs/pay-kit` are documented here. The format is base
 on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- **Subscription mappers built `plan`/`customer` from the wrong fields.**
+  Live-sandbox paid-charge drills caught both: Paystack's `mapSubscription`
+  ran `String()` on its nested `plan`/`customer` objects (producing
+  `[object Object]` instead of the plan code / customer code), and
+  Flutterwave's mapper treated its plain numeric `plan` id as an object
+  (dropping it entirely) and never read the real `customer.customer_email`
+  field. Both now map the real response shapes, and the parity fixtures were
+  updated to the shapes the live APIs actually return.
+
+### Changed
+- **Flutterwave `fetchSubscription` now throws code `"unsupported"`.** The
+  Flutterwave v3 API has no fetch-subscription-by-id endpoint (the previous
+  call hit a route that returns an HTML error page); callers should use
+  `listSubscriptions({ plan | email })` and match on id. Mirrors the
+  existing `cancelPlan`/`createSubscription` contract.
+
+### Verified
+- **Paid-charge write paths (`verify`/`chargeAuthorization`/`refund`).**
+  Exercised end to end against the real sandboxes with actual test-card
+  payments (script `init`/`confirm`): both providers verify the completed
+  charge, re-charge the saved card, and refund the original amount
+  (Paystack refunds start `pending`, Flutterwave complete `processed`).
+- **Subscription write paths (`createSubscription` via plan-carrying charge,
+  `listSubscriptions`, `cancelSubscription`, `enableSubscription`).** Paying
+  a charge on a monthly plan creates the subscription on both providers,
+  which is listed, cancelled, and (Flutterwave) re-activated live
+  (script `init-sub`/`confirm-sub`). Documented provider behaviors surfaced:
+  Paystack cannot re-activate a subscription it cancelled via the API, and
+  Flutterwave has no fetch-by-id subscription endpoint.
+
 ## [0.11.0] - 2026-08-02
 
 ### Fixed
