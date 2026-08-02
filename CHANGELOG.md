@@ -7,6 +7,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Fixed
+- **CI and fresh checkouts failed `bun test`.** `scripts/smoke-dist.test.ts`
+  imports the built `dist/`, but plain `bun test` runs before any build -
+  on CI and in fresh clones the suite errored with "Cannot find module
+  '../dist/index.js'". The default `test` script now excludes the dist
+  smoke test (it belongs to `test:dist`, which builds first), CI runs the
+  build before the tests and exercises the full publish gate
+  (`test:dist`, `test:node`, `test:types`), and the publish workflow
+  verifies via `prepublishOnly` instead of a partial check.
 - **Fastify webhook signatures failed on every valid webhook.** The plugin
   registered only a wildcard `*/*` content-type parser, but Fastify's
   built-in `application/json` parser wins over a wildcard - so webhook
