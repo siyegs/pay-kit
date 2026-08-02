@@ -276,11 +276,13 @@ export function createMockProvider(ctx: ProviderContext): PaymentProvider {
 
     async createSubscription(params: CreateSubscriptionParams): Promise<Subscription> {
       requirePlan(params.plan);
+      const now = new Date();
       const sub: Subscription = {
         id: `mock_sub_${++subSeq}`,
         customer: params.customer,
         plan: params.plan,
         status: "active",
+        nextPaymentDate: new Date(now.setMonth(now.getMonth() + 1)).toISOString(),
         emailToken: `mock_tok_${subSeq}`,
         createdAt: new Date().toISOString(),
         raw: { mock: true },

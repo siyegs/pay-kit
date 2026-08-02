@@ -140,15 +140,26 @@ function mapPlan(data: Record<string, unknown>): Plan {
 
 function mapSubscription(data: Record<string, unknown>): Subscription {
   const customer = (data.customer ?? {}) as Record<string, unknown>;
-  const plan = (data.payment_plan ?? data.plan ?? {}) as Record<string, unknown>;
+  const planRaw = data.payment_plan ?? data.plan;
+  const plan =
+    typeof planRaw === "object" && planRaw !== null
+      ? (planRaw as Record<string, unknown>)
+      : undefined;
   return {
     id: data.id !== undefined ? String(data.id) : "",
-    customer: customer.email ? String(customer.email) : undefined,
+    customer:
+      customer.customer_email !== undefined
+        ? String(customer.customer_email)
+        : customer.email !== undefined
+          ? String(customer.email)
+          : data.customer !== undefined
+            ? String(data.customer)
+            : undefined,
     plan:
-      plan.id !== undefined
-        ? String(plan.id)
-        : plan.name
-          ? String(plan.name)
+      plan !== undefined
+        ? String(plan.id ?? plan.name ?? "")
+        : planRaw !== undefined
+          ? String(planRaw)
           : undefined,
     status: data.status ? String(data.status) : undefined,
     nextPaymentDate: data.next_payment_date ? String(data.next_payment_date) : undefined,
@@ -588,13 +599,13 @@ export function createFlutterwaveProvider(ctx: ProviderContext): PaymentProvider
     },
 
     async fetchSubscription(idOrCode: string): Promise<Subscription> {
-      const body = await providerRequest(
-        ctx,
-        "flutterwave",
-        `${base}/v3/subscriptions/${encodeURIComponent(idOrCode)}`,
-        { method: "GET" },
+      // Flutterwave's v3 API has no fetch-by-id subscription endpoint - only
+      // list (with filters), activate, and deactivate. Callers should use
+      // listSubscriptions({ plan | email }) and match on id.
+      throw new PayKitError(
+        `Flutterwave has no fetch-subscription endpoint - use listSubscriptions({ plan }) and match on id ${idOrCode}`,
+        { code: "unsupported", provider: "flutterwave" },
       );
-      return mapSubscription((body.data ?? {}) as Record<string, unknown>);
     },
 
     async cancelSubscription(idOrCode: string): Promise<Subscription> {

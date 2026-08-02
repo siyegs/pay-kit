@@ -119,10 +119,16 @@ function mapPlan(data: Record<string, unknown>): Plan {
 }
 
 function mapSubscription(data: Record<string, unknown>): Subscription {
+  const plan = (data.plan ?? {}) as Record<string, unknown>;
+  const customer = (data.customer ?? {}) as Record<string, unknown>;
   return {
     id: String(data.subscription_code ?? data.id ?? ""),
-    customer: data.customer ? String(data.customer) : undefined,
-    plan: data.plan ? String(data.plan) : undefined,
+    customer: data.customer
+      ? String(customer.customer_code ?? customer.email ?? data.customer)
+      : undefined,
+    plan: data.plan
+      ? String(plan.plan_code ?? plan.name ?? plan.id ?? data.plan)
+      : undefined,
     status: data.status ? String(data.status) : undefined,
     nextPaymentDate: data.next_payment_date ? String(data.next_payment_date) : undefined,
     emailToken: data.email_token ? String(data.email_token) : undefined,
