@@ -23,8 +23,17 @@ jobs:
       - name: Typecheck
         run: bun run typecheck
 
-      - name: Test
-        run: bun test
-
       - name: Build
         run: bun run build
+
+      - name: Test (source suite, dist smoke excluded - it needs the build)
+        run: bun run test
+
+      - name: Dist smoke test
+        run: bun run test:dist
+
+      - name: Node consumer smoke tests
+        run: bun run test:node
+
+      - name: Published type resolution (attw)
+        run: bun run test:types
