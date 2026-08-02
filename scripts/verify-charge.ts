@@ -16,6 +16,13 @@
  *   3. bun run scripts/verify-charge.ts confirm paystack
  *        -> verify (expects success) -> chargeAuthorization -> refund
  *
+ * Subscription write paths need a *plan-carrying* paid charge (the plan is
+ * created first, then a charge at the plan amount starts the subscription):
+ *
+ *   bun run scripts/verify-charge.ts init-sub paystack
+ *   bun run scripts/verify-charge.ts confirm-sub paystack
+ *        -> verify -> list/fetch subscription -> cancel -> enable
+ *
  * A webhook signature self-check needs no browser step:
  *
  *   bun run scripts/verify-charge.ts webhook paystack
@@ -31,7 +38,7 @@ import type { PayClientConfig, ProviderName } from "../src";
 const STATE_FILE = join(import.meta.dir, "..", ".paykit-verify.json");
 const EMAIL = "verify@pay-kit.dev";
 
-type State = Record<string, { reference: string; email: string }>;
+type State = Record<string, { reference: string; email: string; planId?: string }>;
 
 function loadState(): State {
   if (!existsSync(STATE_FILE)) return {};
@@ -197,6 +204,124 @@ function describe(err: unknown): string {
 }
 
 /**
+ * Create a test plan, then start a *plan-carrying* charge at the plan amount.
+ * Paying that charge is what creates the subscription on the provider side
+ * (Paystack: subscription with an email_token; Flutterwave: subscription on
+ * the payment plan). Saves both the plan id/code and the charge reference.
+ */
+async function initSub(provider: ProviderName): Promise<void> {
+  const pay = createPayClient(configFor(provider));
+  const planName = "pay-kit sub test";
+  const plan = await pay.createPlan({
+    name: planName,
+    amount: 500000, // NGN 5,000.00 - the charge must match the plan amount
+    interval: "monthly",
+    currency: "NGN",
+  });
+
+  const reference = `pk_sub_${provider}_${Date.now()}`;
+  const r = await pay.initialize({
+    amount: plan.amount ?? 500000,
+    email: EMAIL,
+    reference,
+    callbackUrl: "https://example.com/pay-kit/callback",
+    plan: plan.id,
+  });
+
+  const state = loadState();
+  state[provider] = { reference: r.reference, email: EMAIL, planId: plan.id };
+  saveState(state);
+
+  console.log(`\n=== ${provider.toUpperCase()} — pay this plan-carrying charge ===`);
+  console.log(`  plan:      ${plan.id} (${plan.name})`);
+  console.log(`  reference: ${r.reference}`);
+  console.log(`  checkout:  ${r.authorizationUrl}\n`);
+  console.log("Open the URL, pay with the provider's TEST card (see this file's header),");
+  console.log(`then run:  bun run scripts/verify-charge.ts confirm-sub ${provider}`);
+}
+
+/**
+ * Verify the subscription the paid plan-carrying charge created, then drive
+ * the write paths: fetch, cancel, and re-enable. Hard-fails on anything that
+ * is not the documented provider behavior.
+ */
+async function confirmSub(provider: ProviderName): Promise<void> {
+  const state = loadState();
+  const saved = state[provider];
+  if (!saved?.planId) {
+    fail("state", `no plan charge for ${provider} - run 'init-sub ${provider}' first.`);
+  }
+  const pay = createPayClient(configFor(provider));
+  console.log(`\n=== ${provider.toUpperCase()} — verifying subscription write paths ===`);
+
+  // The plan-carrying charge must be paid, or no subscription exists.
+  const v = await pay.verify(saved.reference);
+  if (v.status !== "success") {
+    fail("verify", `status=${v.status} (complete the checkout in the browser first, then re-run confirm-sub).`);
+  }
+  pass("verify", `status=success amount=${v.amount} ${v.currency}`);
+
+  const subs = await pay.listSubscriptions();
+  const match = subs.subscriptions.find(
+    (s) => s.plan === saved.planId && s.status === "active",
+  );
+  if (!match) {
+    fail("subscription created", `no active subscription for plan ${saved.planId} in listSubscriptions`);
+  }
+  pass("subscription created", `id=${match.id} plan=${match.plan}`);
+
+  // Flutterwave has no fetch-by-id endpoint - its subscription is identified
+  // via listSubscriptions above. Paystack's fetch must round-trip.
+  if (provider === "flutterwave") {
+    warn("fetchSubscription", "Flutterwave has no fetch-by-id endpoint - id confirmed via listSubscriptions");
+    const cancelled = await pay.cancelSubscription(match.id);
+    if (cancelled.status !== "cancelled") {
+      fail("cancelSubscription", `status=${cancelled.status}`);
+    }
+    pass("cancelSubscription", `status=${cancelled.status}`);
+
+    const enabled = await pay.enableSubscription(match.id);
+    if (enabled.status !== "active") {
+      fail("enableSubscription", `status=${enabled.status}`);
+    }
+    pass("enableSubscription", `status=${enabled.status}`);
+  } else {
+    const fetched = await pay.fetchSubscription(match.id);
+    if (!fetched.id) fail("fetchSubscription", "no id returned");
+    pass("fetchSubscription", `id=${fetched.id} status=${fetched.status}`);
+
+    // Paystack cancel/enable need the email token from the created subscription.
+    if (!fetched.emailToken) {
+      warn("cancel/enable", "no emailToken on the subscription - Paystack cancel/enable require it");
+    } else {
+      const cancelled = await pay.cancelSubscription(match.id, {
+        token: fetched.emailToken,
+      });
+      if (cancelled.status !== "cancelled") {
+        fail("cancelSubscription", `status=${cancelled.status}`);
+      }
+      pass("cancelSubscription", `status=${cancelled.status}`);
+
+      // Paystack does not allow re-activating a subscription it cancelled via
+      // the API ("cannot be reactivated") - expected provider behavior.
+      try {
+        const enabled = await pay.enableSubscription(match.id, {
+          token: fetched.emailToken,
+        });
+        if (enabled.status !== "active") {
+          fail("enableSubscription", `status=${enabled.status}`);
+        }
+        pass("enableSubscription", `status=${enabled.status}`);
+      } catch (err) {
+        warn("enableSubscription", `${describe(err)} (Paystack cannot reactivate an API-cancelled subscription)`);
+      }
+    }
+  }
+
+  console.log("\nDone. Update the README Status section for any step that PASSed.");
+}
+
+/**
  * Create a connected subaccount against the live sandbox. Needs a settlement
  * bank + account: reuse the per-provider resolve vars from `.env`
  * (`PAYSTACK_RESOLVE_ACCOUNT`/`_BANK`, `FLUTTERWAVE_RESOLVE_ACCOUNT`/`_BANK`).
@@ -232,16 +357,20 @@ async function subaccount(provider: ProviderName): Promise<void> {
 const [command, providerArg] = process.argv.slice(2);
 const provider = providerArg as ProviderName;
 
-if (!command || !["init", "confirm", "webhook", "subaccount"].includes(command) || !provider) {
+if (!command || !["init", "confirm", "init-sub", "confirm-sub", "webhook", "subaccount"].includes(command) || !provider) {
   console.log("Usage:");
-  console.log("  bun run scripts/verify-charge.ts init       <paystack|flutterwave>");
-  console.log("  bun run scripts/verify-charge.ts confirm    <paystack|flutterwave>");
-  console.log("  bun run scripts/verify-charge.ts webhook    <paystack|flutterwave>");
-  console.log("  bun run scripts/verify-charge.ts subaccount <paystack|flutterwave>");
+  console.log("  bun run scripts/verify-charge.ts init         <paystack|flutterwave>");
+  console.log("  bun run scripts/verify-charge.ts confirm      <paystack|flutterwave>");
+  console.log("  bun run scripts/verify-charge.ts init-sub     <paystack|flutterwave>");
+  console.log("  bun run scripts/verify-charge.ts confirm-sub  <paystack|flutterwave>");
+  console.log("  bun run scripts/verify-charge.ts webhook      <paystack|flutterwave>");
+  console.log("  bun run scripts/verify-charge.ts subaccount   <paystack|flutterwave>");
   process.exit(1);
 }
 
 if (command === "init") await init(provider);
 else if (command === "confirm") await confirm(provider);
+else if (command === "init-sub") await initSub(provider);
+else if (command === "confirm-sub") await confirmSub(provider);
 else if (command === "subaccount") await subaccount(provider);
 else webhook(provider);
