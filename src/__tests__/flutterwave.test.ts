@@ -518,8 +518,8 @@ describe("flutterwave: subscriptions", () => {
         data: [
           {
             id: 99,
-            customer: { email: "a@b.com" },
-            payment_plan: { id: 12, name: "Pro" },
+            customer: { id: 1, customer_email: "a@b.com" },
+            plan: 239778,
             status: "active",
           },
         ],
@@ -531,31 +531,39 @@ describe("flutterwave: subscriptions", () => {
     expect(list.subscriptions).toHaveLength(1);
     expect(list.subscriptions[0]!.id).toBe("99");
     expect(list.subscriptions[0]!.customer).toBe("a@b.com");
-    expect(list.subscriptions[0]!.plan).toBe("12");
+    expect(list.subscriptions[0]!.plan).toBe("239778");
     expect(calls[0]!.url).toContain("/v3/subscriptions");
     expect(calls[0]!.url).toContain("per_page=5");
   });
 
-  it("fetches, cancels, and re-activates a subscription", async () => {
+  it("has no fetch-by-id endpoint - throws unsupported", async () => {
+    const { fetch } = mockFetch(() => ({ body: { status: "success", data: {} } }));
+    const pay = createPayClient({ provider: "flutterwave", secretKey: SECRET, fetch });
+
+    await expect(pay.fetchSubscription("99")).rejects.toMatchObject({
+      code: "unsupported",
+      provider: "flutterwave",
+    });
+  });
+
+  it("cancels, and re-activates a subscription", async () => {
     const sub = {
       id: 99,
-      customer: { email: "a@b.com" },
-      payment_plan: { id: 12 },
+      customer: { id: 1, customer_email: "a@b.com" },
+      plan: 239778,
       status: "active",
     };
     const { fetch, calls } = mockFetch(() => ({ body: { status: "success", data: sub } }));
     const pay = createPayClient({ provider: "flutterwave", secretKey: SECRET, fetch });
 
-    const fetched = await pay.fetchSubscription("99");
-    expect(fetched.id).toBe("99");
-    expect(calls[0]!.url).toContain("/v3/subscriptions/99");
-
     const cancelled = await pay.cancelSubscription("99");
+    expect(cancelled.id).toBe("99");
     expect(cancelled.status).toBe("active");
-    expect(calls[1]!.url).toContain("/v3/subscriptions/99/cancel");
+    expect(calls[0]!.url).toContain("/v3/subscriptions/99/cancel");
 
-    await pay.enableSubscription("99");
-    expect(calls[2]!.url).toContain("/v3/subscriptions/99/activate");
+    const enabled = await pay.enableSubscription("99");
+    expect(enabled.id).toBe("99");
+    expect(calls[1]!.url).toContain("/v3/subscriptions/99/activate");
   });
 });
 

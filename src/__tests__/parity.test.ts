@@ -68,11 +68,20 @@ const planData = (name: string) => ({
 const subData = () => ({
   id: 1,
   subscription_code: "SUB_1",
-  customer: "CUS_1",
-  plan: "PLN_1",
+  customer: { customer_code: "CUS_1", email: "a@b.com" },
+  plan: { plan_code: "PLN_1", name: "Basic" },
   status: "active",
   next_payment_date: "2026-09-01T00:00:00Z",
   email_token: "tok_1",
+  created_at: "2026-08-01T00:00:00Z",
+});
+
+const flwSubData = () => ({
+  id: 12,
+  amount: 5000,
+  customer: { id: 1, customer_email: "a@b.com" },
+  plan: 239778,
+  status: "active",
   created_at: "2026-08-01T00:00:00Z",
 });
 
@@ -142,6 +151,14 @@ function flutterwaveResponder(url: string, init: RequestInit) {
   if (path.startsWith("/v3/balances")) return { body: flwOk([{ currency: "NGN", available_balance: 100000 }]) };
   if (path.startsWith("/v3/transactions")) return { body: flwOk([{ tx_ref: "parity_init", status: "successful", amount: 5000, currency: "NGN", created_at: "2026-08-01T10:00:00Z", customer: { email: "a@b.com" } }]) };
   if (path.startsWith("/v3/subaccounts")) return { body: flwOk({ subaccount_id: "SUB_1", business_name: "Acme Corp", account_number: "0123456789" }) };
+  if (path.startsWith("/v3/subscriptions/")) {
+    return { body: flwOk(flwSubData()) };
+  }
+  if (path.startsWith("/v3/subscriptions")) {
+    return init.method === "GET"
+      ? { body: flwOk({ subscriptions: [flwSubData()], page: 1 }) }
+      : { body: flwOk(flwSubData()) };
+  }
   if (path.includes("/cancel")) return { body: flwOk({ id: 12, name: "Basic", amount: 5000, interval: "monthly", currency: "NGN", status: "active", duration: 12 }) };
   if (path.startsWith("/v3/payment-plans/")) return { body: flwOk({ id: 12, name: "Basic Plus", amount: 5000, interval: "monthly", currency: "NGN", status: "active", duration: 12 }) };
   if (path.startsWith("/v3/payment-plans")) {
@@ -159,7 +176,7 @@ function describeShape(value: unknown): unknown {
   if (value !== null && typeof value === "object") {
     const out: Record<string, unknown> = {};
     for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
-      if (key === "raw") continue;
+      if (key === "raw" || val === undefined) continue;
       out[key] = describeShape(val);
     }
     return out;
@@ -449,5 +466,40 @@ describe("mock parity vs flutterwave", () => {
       const created = await p.createPlan({ ...PLAN });
       return p.cancelPlan(created.id);
     });
+  });
+
+  it("listSubscriptions", async () => {
+    // Flutterwave has no createSubscription - its list shape must be covered
+    // by the mock (reverse parity).
+    await checkReverseParity("listSubscriptions", mockClient(), flutterwaveClient(), (p) =>
+      p.listSubscriptions(),
+    );
+  });
+
+  it("fetchSubscription", async () => {
+    // Flutterwave has no fetch-by-id endpoint - it must throw unsupported,
+    // mirroring createSubscription. The mock covers the list-based lookup.
+    await expect(flutterwaveClient().fetchSubscription("12")).rejects.toMatchObject({
+      code: "unsupported",
+      provider: "flutterwave",
+    });
+  });
+
+  it("cancelSubscription", async () => {
+    const mock = mockClient();
+    const plan = await mock.createPlan({ ...PLAN });
+    const sub = await mock.createSubscription({ customer: "CUS_1", plan: plan.id });
+    await checkReverseParity("cancelSubscription", mock, flutterwaveClient(), (p) =>
+      p.cancelSubscription(sub.id),
+    );
+  });
+
+  it("enableSubscription", async () => {
+    const mock = mockClient();
+    const plan = await mock.createPlan({ ...PLAN });
+    const sub = await mock.createSubscription({ customer: "CUS_1", plan: plan.id });
+    await checkReverseParity("enableSubscription", mock, flutterwaveClient(), (p) =>
+      p.enableSubscription(sub.id),
+    );
   });
 });
