@@ -4,7 +4,7 @@ All notable changes to `@siyegs/pay-kit` are documented here. The format is base
 on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.11.0] - 2026-08-02
 
 ### Fixed
 - **CI and fresh checkouts failed `bun test`.** `scripts/smoke-dist.test.ts`
@@ -252,7 +252,8 @@ _No runtime code changes - documentation and release tooling only._
   and automatic provider fallback (`createFallbackClient`). Subunit-canonical
   amounts, `PayKitError` with machine-readable codes, ESM + CJS, Bun toolchain.
 
-[Unreleased]: https://github.com/siyegs/pay-kit/compare/v0.10.1...HEAD
+[Unreleased]: https://github.com/siyegs/pay-kit/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/siyegs/pay-kit/compare/v0.10.1...v0.11.0
 [0.10.1]: https://github.com/siyegs/pay-kit/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/siyegs/pay-kit/compare/v0.9.1...v0.10.0
 [0.9.1]: https://github.com/siyegs/pay-kit/compare/v0.9.0...v0.9.1
